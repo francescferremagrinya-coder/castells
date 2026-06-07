@@ -329,6 +329,10 @@
     grd.addColorStop(0, "#cfe3ee"); grd.addColorStop(1, "#e8eedf");
     ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
 
+    // soft sun
+    ctx.fillStyle = "rgba(255,243,205,.55)";
+    ctx.beginPath(); ctx.arc(W * 0.8, H * 0.15, Math.min(W, H) * 0.085, 0, Math.PI * 2); ctx.fill();
+
     const groundY = H * 0.84;
     // ground
     ctx.fillStyle = "#d8cfb8"; ctx.fillRect(0, groundY + 4, W, H);
@@ -336,6 +340,10 @@
     ctx.beginPath(); ctx.moveTo(0, groundY + 4); ctx.lineTo(W, groundY + 4); ctx.stroke();
 
     if (screen !== "game" || !state) return;
+
+    // soft shadow under the pinya
+    ctx.fillStyle = "rgba(60,54,44,.12)";
+    ctx.beginPath(); ctx.ellipse(W / 2, groundY + 8, Math.min(W * 0.42, 215), 15, 0, 0, Math.PI * 2); ctx.fill();
 
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
     cxBase = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
@@ -371,8 +379,7 @@
     // The standing trunk, on top of the climber.
     for (let i = 0; i < state.placed; i++) {
       const isEnx = i === N - 1;
-      const aleta = isEnx && (state.phase === PHASE.ALETA || state.phase === PHASE.WIN);
-      drawAt(i, 0, i, isEnx, aleta, false);
+      drawAt(i, 0, i, isEnx, isEnx, false); // enxaneta (top) raises a hand
     }
 
     // Pinya drawn last (in front) so it hides the segon's feet → he sits in the pinya.
@@ -383,63 +390,74 @@
 
   function smooth(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
 
-  // A stylised casteller with colour: pants, faixa, shirt, head.
+  // A stylised casteller with colour. Each one grips the calves of the
+  // casteller above (from behind); only the enxaneta raises a hand (aleta).
   function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing) {
     const h = levelH;
-    const w = h * (isTop ? 0.40 : 0.52 - idx * 0.018); // higher = slimmer/lighter
+    const w = h * (isTop ? 0.38 : 0.5 - idx * 0.016); // higher = slimmer/lighter
+    const tH = h * 0.5, tY = -h * 0.5;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(x, y);
     ctx.lineJoin = "round"; ctx.lineCap = "round";
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "#1b2730";
 
-    const legSpread = climbing ? w * 0.2 : w * 0.32;
-    // legs (white trousers) gripping the shoulders below
-    ctx.strokeStyle = COLLA.pants; ctx.lineWidth = w * 0.26;
-    ctx.beginPath();
-    ctx.moveTo(-legSpread, -h * 0.02); ctx.lineTo(-legSpread * 0.7, h * 0.4);
-    ctx.moveTo(legSpread, -h * 0.02); ctx.lineTo(legSpread * 0.7, h * 0.4);
-    ctx.stroke();
-    // outline legs
-    ctx.strokeStyle = "rgba(27,39,48,.4)"; ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(-legSpread, -h * 0.02); ctx.lineTo(-legSpread * 0.7, h * 0.4);
-    ctx.moveTo(legSpread, -h * 0.02); ctx.lineTo(legSpread * 0.7, h * 0.4);
-    ctx.stroke();
+    const handR = w * 0.12;
+    const hand = (hx, hy) => {
+      ctx.fillStyle = COLLA.skin; ctx.strokeStyle = "#1b2730"; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(hx, hy, handR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    };
 
-    // torso (shirt)
-    const tH = h * 0.5, tY = -h * 0.5;
+    // --- legs (white trousers) ---
+    const legSpread = climbing ? w * 0.18 : w * 0.3;
+    const footY = h * 0.42;
+    ctx.strokeStyle = COLLA.pants; ctx.lineWidth = w * 0.28;
+    ctx.beginPath();
+    ctx.moveTo(-legSpread, -h * 0.04); ctx.lineTo(-legSpread * 0.78, footY);
+    ctx.moveTo(legSpread, -h * 0.04); ctx.lineTo(legSpread * 0.78, footY);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(27,39,48,.3)"; ctx.lineWidth = 1; ctx.stroke();
+    // shoes
+    ctx.fillStyle = "#3a3027";
+    ctx.beginPath(); ctx.ellipse(-legSpread * 0.78, footY, w * 0.14, w * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(legSpread * 0.78, footY, w * 0.14, w * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+
+    // --- torso (shirt) ---
     const g = ctx.createLinearGradient(-w * 0.5, 0, w * 0.5, 0);
     g.addColorStop(0, COLLA.shirtDark); g.addColorStop(0.5, COLLA.shirt); g.addColorStop(1, COLLA.shirtDark);
-    ctx.fillStyle = g;
-    ctx.strokeStyle = "#1b2730"; ctx.lineWidth = 1.6;
-    ctx.beginPath(); roundRect(-w * 0.5, tY, w, tH, w * 0.26); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = g; ctx.strokeStyle = "#1b2730"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); roundRect(-w * 0.5, tY, w, tH, w * 0.28); ctx.fill(); ctx.stroke();
 
-    // faixa (sash)
+    // --- faixa (sash) + knot ---
     ctx.fillStyle = COLLA.faixa;
-    ctx.beginPath(); roundRect(-w * 0.5, tY + tH * 0.55, w, tH * 0.34, w * 0.12); ctx.fill();
+    ctx.beginPath(); roundRect(-w * 0.5, tY + tH * 0.52, w, tH * 0.36, w * 0.12); ctx.fill();
+    ctx.beginPath(); ctx.arc(-w * 0.08, tY + tH * 0.7, w * 0.09, 0, Math.PI * 2); ctx.fill();
 
-    // arms
+    // --- arms ---
     ctx.strokeStyle = COLLA.shirt; ctx.lineWidth = w * 0.2;
-    ctx.beginPath();
+    const shY = tY + tH * 0.08;
     if (aleta) {
-      ctx.moveTo(-w * 0.3, tY + tH * 0.2); ctx.lineTo(-w * 0.5, tY - h * 0.32);
-      ctx.moveTo(w * 0.3, tY + tH * 0.2); ctx.lineTo(w * 0.5, tY - h * 0.32);
-    } else if (climbing) {
-      // both arms reaching up, hugging the back of the casteller above
-      ctx.moveTo(-w * 0.3, tY + tH * 0.15); ctx.lineTo(-w * 0.34, tY - h * 0.3);
-      ctx.moveTo(w * 0.3, tY + tH * 0.15); ctx.lineTo(w * 0.34, tY - h * 0.3);
+      // enxaneta: one hand raised high, the other resting on the chest
+      ctx.beginPath();
+      ctx.moveTo(w * 0.34, shY); ctx.lineTo(w * 0.52, tY - h * 0.42);
+      ctx.moveTo(-w * 0.34, shY); ctx.lineTo(-w * 0.18, tY + tH * 0.45);
+      ctx.stroke();
+      hand(w * 0.52, tY - h * 0.42); hand(-w * 0.18, tY + tH * 0.45);
     } else {
-      ctx.moveTo(-w * 0.4, tY + tH * 0.25); ctx.lineTo(-w * 0.52, tY + tH * 0.85);
-      ctx.moveTo(w * 0.4, tY + tH * 0.25); ctx.lineTo(w * 0.52, tY + tH * 0.85);
+      // grip the calves of the casteller above (just above this one's head)
+      const gx = w * 0.27, gy = -h * 0.72;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.34, shY); ctx.lineTo(-gx, gy);
+      ctx.moveTo(w * 0.34, shY); ctx.lineTo(gx, gy);
+      ctx.stroke();
+      hand(-gx, gy); hand(gx, gy);
     }
-    ctx.stroke();
 
-    // head
-    const hr = w * 0.3, hy = tY - hr * 0.9;
+    // --- head + mocador (bandana) ---
+    const hr = w * 0.3, hy = tY - hr * 0.95;
     ctx.fillStyle = COLLA.skin; ctx.strokeStyle = "#1b2730"; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.arc(0, hy, hr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = COLLA.shirtDark;
+    ctx.beginPath(); ctx.arc(0, hy, hr, Math.PI * 1.06, Math.PI * 1.94); ctx.fill();
 
     ctx.restore();
   }
