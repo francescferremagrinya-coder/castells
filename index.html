@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pilar — Prototip casteller</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #e9e4d8; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #game { display: block; touch-action: none; }
+  #ui { position: fixed; inset: 0; pointer-events: none; }
+
+  /* Top bars */
+  .bars { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: min(92%, 460px); }
+  .label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #5b5346; margin: 0 0 3px 2px; }
+
+  /* Balance meter */
+  .bal-wrap { position: relative; height: 18px; background: #d8d1c2; border-radius: 10px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.18); }
+  .bal-zone { position: absolute; top: 0; bottom: 0; left: 35%; right: 35%; background: rgba(76,160,90,.35); }
+  .bal-mark { position: absolute; top: -3px; width: 6px; height: 24px; background: #1c1c1c; border-radius: 3px; left: 50%; transform: translateX(-50%); transition: background .1s; }
+
+  /* Fatigue bar */
+  .fat-wrap { margin-top: 12px; height: 14px; background: #d8d1c2; border-radius: 8px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.18); }
+  .fat-fill { height: 100%; width: 100%; background: linear-gradient(90deg,#c94b2e,#e6a23c,#4ca05a); background-size: 300% 100%; background-position: 100% 0; border-radius: 8px; transition: width .1s linear; }
+
+  /* Status pill */
+  .status { position: absolute; top: 92px; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 700; color: #3a342a; background: rgba(255,255,255,.7); padding: 4px 14px; border-radius: 20px; white-space: nowrap; }
+
+  /* Control buttons */
+  .ctrls { position: absolute; bottom: 0; left: 0; right: 0; height: 38%; display: flex; pointer-events: auto; }
+  .ctrl { flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 26px; }
+  .ctrl span { font-size: 46px; color: rgba(40,40,40,.28); user-select: none; transition: color .08s, transform .08s; }
+  .ctrl.active span { color: rgba(40,40,40,.7); transform: scale(.86); }
+
+  /* Overlays */
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; pointer-events: auto; background: rgba(233,228,216,.94); }
+  .overlay.hidden { display: none; }
+  .overlay h1 { font-size: clamp(30px,9vw,52px); color: #1c1c1c; letter-spacing: -.02em; margin-bottom: 8px; }
+  .overlay .sub { font-size: 15px; color: #5b5346; max-width: 320px; line-height: 1.5; margin-bottom: 26px; }
+  .overlay .big { font-size: clamp(40px,13vw,72px); margin-bottom: 4px; }
+  .btn { pointer-events: auto; background: #1c1c1c; color: #f3efe4; border: none; font-size: 17px; font-weight: 700; padding: 14px 38px; border-radius: 40px; cursor: pointer; letter-spacing: .03em; }
+  .btn:active { transform: scale(.96); }
+  .hint { margin-top: 22px; font-size: 12px; color: #8a8170; max-width: 300px; line-height: 1.5; }
+  .res-sub { font-size: 16px; color: #5b5346; margin-bottom: 24px; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="ui">
+  <div class="bars">
+    <div class="label">Equilibri</div>
+    <div class="bal-wrap"><div class="bal-zone"></div><div class="bal-mark" id="balMark"></div></div>
+    <div class="label" style="margin-top:10px">Cansament</div>
+    <div class="fat-wrap"><div class="fat-fill" id="fatFill"></div></div>
+  </div>
+  <div class="status" id="status">Prepara la pinya…</div>
+
+  <div class="ctrls">
+    <div class="ctrl" id="ctrlL"><span>◀</span></div>
+    <div class="ctrl" id="ctrlR"><span>▶</span></div>
+  </div>
+</div>
+
+<!-- Start screen -->
+<div class="overlay" id="startScreen">
+  <div class="big">🏰</div>
+  <h1>PILAR</h1>
+  <div class="sub">Aixeca el pilar mantenint l'equilibri. Els castellers pugen un a un fins que l'enxaneta fa l'aleta… i després cal descarregar sense fer llenya.</div>
+  <button class="btn" id="startBtn">Comença</button>
+  <div class="hint">Mantén la torre centrada amb <b>◀ ▶</b> (o les fletxes del teclat). Toca el costat cap on vols empènyer.</div>
+</div>
+
+<!-- Result screen -->
+<div class="overlay hidden" id="endScreen">
+  <div class="big" id="endEmoji">🎉</div>
+  <h1 id="endTitle">Descarregat!</h1>
+  <div class="res-sub" id="endSub"></div>
+  <button class="btn" id="retryBtn">Una altra</button>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Setup ----------
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = 1;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + "px"; canvas.style.height = H + "px";
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // ---------- Game config ----------
+  // Trunk from bottom (segon) to top (enxaneta). Lighter = higher = wobblier.
+  const TRUNK = ["Segon", "Terç", "Quart", "Quint", "Acotxador", "Enxaneta"];
+  const N = TRUNK.length;
+
+  const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5 };
+
+  let state = null;
+
+  function newGame() {
+    state = {
+      phase: PHASE.READY,
+      placed: 1,            // segon is already up on the pinya
+      climbing: false,      // is someone in transit
+      climbProg: 0,         // 0..1 progress of the climber in transit
+      goingUp: true,
+      lean: 0,              // -1 (left) .. +1 (right); |lean|>=1 => fall
+      leanVel: 0,
+      fatigue: 1,           // 1 -> 0
+      aletaT: 0,
+      settle: 0.6,          // small pause before next climber
+      time: 0,
+      shake: 0,
+      result: null,
+    };
+  }
+
+  // ---------- Input ----------
+  const input = { left: false, right: false };
+  const ctrlL = document.getElementById("ctrlL");
+  const ctrlR = document.getElementById("ctrlR");
+
+  function bind(el, side) {
+    const on = (e) => { e.preventDefault(); input[side] = true; el.classList.add("active"); };
+    const off = (e) => { e.preventDefault(); input[side] = false; el.classList.remove("active"); };
+    el.addEventListener("pointerdown", on);
+    el.addEventListener("pointerup", off);
+    el.addEventListener("pointercancel", off);
+    el.addEventListener("pointerleave", off);
+  }
+  bind(ctrlL, "left");
+  bind(ctrlR, "right");
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft" || e.key === "a") input.left = true;
+    if (e.key === "ArrowRight" || e.key === "d") input.right = true;
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.key === "ArrowLeft" || e.key === "a") input.left = false;
+    if (e.key === "ArrowRight" || e.key === "d") input.right = false;
+  });
+
+  // ---------- Game logic ----------
+  function difficulty() {
+    // Higher tower = more sensitive. Climbing adds an extra kick.
+    const heightFactor = 0.45 + state.placed * 0.16;
+    const climbFactor = state.climbing ? 1.5 : 1;
+    const fatigueFactor = 1 + (1 - state.fatigue) * 0.9;
+    return heightFactor * climbFactor * fatigueFactor;
+  }
+
+  let noiseT = 0;
+  function update(dt) {
+    if (!state) return;
+    state.time += dt;
+    state.shake *= Math.pow(0.001, dt);
+
+    if (state.phase === PHASE.READY) return;
+
+    if (state.phase === PHASE.WIN || state.phase === PHASE.FALL) return;
+
+    const diff = difficulty();
+
+    // --- Balance physics ---
+    // Random wobble (smoothish noise) pushes the tower.
+    noiseT += dt;
+    const wobble = (Math.sin(noiseT * 2.3) * 0.5 + Math.sin(noiseT * 5.7 + 1.3) * 0.3 + (Math.random() - 0.5) * 0.6);
+    state.leanVel += wobble * diff * 0.22 * dt;
+
+    // Instability: the more it leans the more it wants to topple.
+    state.leanVel += state.lean * diff * 0.9 * dt;
+
+    // Player control.
+    const control = 1.7;
+    if (input.left) state.leanVel -= control * dt;
+    if (input.right) state.leanVel += control * dt;
+
+    // Damping + integrate.
+    state.leanVel *= Math.pow(0.06, dt);
+    state.lean += state.leanVel * dt;
+
+    // --- Fatigue drains while building/holding ---
+    const drain = (0.05 + state.placed * 0.012) * (state.phase === PHASE.UP ? 1 : 0.8);
+    state.fatigue -= drain * dt;
+    if (state.fatigue <= 0) { state.fatigue = 0; fall("Els castellers no han aguantat el pes."); return; }
+
+    // --- Fall check ---
+    if (Math.abs(state.lean) >= 1) { fall("Ha perdut l'equilibri."); return; }
+
+    // --- Climbing progression ---
+    if (state.phase === PHASE.UP) {
+      if (state.climbing) {
+        state.climbProg += dt * 0.7;
+        if (state.climbProg >= 1) {
+          state.climbing = false;
+          state.climbProg = 0;
+          state.placed++;
+          state.shake = Math.min(1, state.shake + 0.35);
+          if (state.placed >= N) { state.phase = PHASE.ALETA; state.aletaT = 0; }
+          else state.settle = 0.5;
+        }
+      } else {
+        // Wait until reasonably balanced before sending the next one up.
+        state.settle -= dt;
+        if (state.settle <= 0 && Math.abs(state.lean) < 0.45) {
+          state.climbing = true;
+          state.climbProg = 0;
+        }
+      }
+    } else if (state.phase === PHASE.ALETA) {
+      state.aletaT += dt;
+      if (state.aletaT > 1.4) { state.phase = PHASE.DOWN; state.goingUp = false; state.settle = 0.4; }
+    } else if (state.phase === PHASE.DOWN) {
+      if (state.climbing) {
+        state.climbProg += dt * 0.85;
+        if (state.climbProg >= 1) {
+          state.climbing = false; state.climbProg = 0;
+          state.placed--;
+          if (state.placed <= 1) win();
+          else state.settle = 0.35;
+        }
+      } else {
+        state.settle -= dt;
+        if (state.settle <= 0 && Math.abs(state.lean) < 0.5) {
+          state.climbing = true; state.climbProg = 0;
+        }
+      }
+    }
+
+    updateUI();
+  }
+
+  function fall(reason) {
+    state.phase = PHASE.FALL;
+    state.result = { ok: false, reason };
+    setTimeout(() => showEnd(), 700);
+  }
+  function win() {
+    state.phase = PHASE.WIN;
+    state.result = { ok: true };
+    setTimeout(() => showEnd(), 600);
+  }
+
+  // ---------- UI ----------
+  const balMark = document.getElementById("balMark");
+  const fatFill = document.getElementById("fatFill");
+  const statusEl = document.getElementById("status");
+
+  function updateUI() {
+    balMark.style.left = (50 + state.lean * 50) + "%";
+    const danger = Math.abs(state.lean);
+    balMark.style.background = danger > 0.65 ? "#c94b2e" : (danger > 0.4 ? "#e6a23c" : "#1c1c1c");
+    fatFill.style.width = (state.fatigue * 100) + "%";
+
+    let txt = "";
+    if (state.phase === PHASE.UP) txt = state.climbing ? "Puja el " + TRUNK[state.placed] + "…" : "Aguanta!";
+    else if (state.phase === PHASE.ALETA) txt = "L'enxaneta fa l'aleta! 🙌";
+    else if (state.phase === PHASE.DOWN) txt = "Descarregant… aguanta!";
+    statusEl.textContent = txt;
+  }
+
+  // ---------- Rendering ----------
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Background — plaça
+    const grd = ctx.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, "#efe9dc");
+    grd.addColorStop(1, "#ddd5c4");
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+
+    if (!state) return;
+
+    const groundY = H * 0.82;
+    const cx = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 8 : 0);
+
+    // ground line
+    ctx.strokeStyle = "rgba(60,54,44,.25)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, groundY + 6); ctx.lineTo(W, groundY + 6); ctx.stroke();
+
+    // --- Tower (drawn before pinya so pinya overlaps the base) ---
+    const levelH = Math.min(46, (groundY - H * 0.10) / N);
+    const baseY = groundY - levelH * 0.2;
+    const maxAngle = 0.30; // radians at lean = 1
+    const angle = state.lean * maxAngle;
+
+    ctx.save();
+    ctx.translate(cx, baseY);
+    ctx.rotate(angle);
+
+    ctx.strokeStyle = "#1c1c1c";
+    ctx.fillStyle = "#efe9dc";
+    ctx.lineWidth = 2.4;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    const total = state.goingUp ? state.placed : state.placed;
+    for (let i = 0; i < total; i++) {
+      const y = -levelH * i;
+      const isEnxaneta = i === N - 1;
+      const aleta = isEnxaneta && (state.phase === PHASE.ALETA || state.phase === PHASE.WIN);
+      drawCasteller(0, y, levelH, isEnxaneta, aleta, i);
+    }
+
+    // Climber in transit
+    if (state.climbing) {
+      const fromY = -levelH * (state.goingUp ? (state.placed - 1) : (state.placed));
+      const toY = -levelH * (state.goingUp ? state.placed : (state.placed - 1));
+      const p = state.climbProg;
+      const y = fromY + (toY - fromY) * p;
+      const x = Math.sin(p * Math.PI) * 14 * (state.goingUp ? 1 : -1);
+      ctx.globalAlpha = 0.55 + 0.45 * (state.goingUp ? p : (1 - p));
+      drawCasteller(x, y, levelH, state.placed === N - 1, false, state.placed);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+
+    // --- Pinya ---
+    drawPinya(cx, groundY, Math.min(W * 0.42, 220));
+
+    // Fall splash
+    if (state.phase === PHASE.FALL) {
+      ctx.fillStyle = "rgba(201,75,46,.10)";
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  function drawCasteller(x, y, h, isTop, aleta, idx) {
+    const w = h * (isTop ? 0.34 : 0.42 - idx * 0.012); // higher = slimmer (lighter)
+    ctx.save();
+    ctx.translate(x, y);
+
+    // legs gripping the one below
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.5, 0); ctx.lineTo(-w * 0.35, h * 0.45);
+    ctx.moveTo(w * 0.5, 0); ctx.lineTo(w * 0.35, h * 0.45);
+    ctx.stroke();
+
+    // torso
+    ctx.beginPath();
+    roundRect(-w * 0.5, -h * 0.55, w, h * 0.6, w * 0.28);
+    ctx.fill(); ctx.stroke();
+
+    // arms
+    if (aleta) {
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.3, -h * 0.45); ctx.lineTo(-w * 0.55, -h * 0.95);
+      ctx.moveTo(w * 0.3, -h * 0.45); ctx.lineTo(w * 0.55, -h * 0.95);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.4, -h * 0.4); ctx.lineTo(-w * 0.5, h * 0.05);
+      ctx.moveTo(w * 0.4, -h * 0.4); ctx.lineTo(w * 0.5, h * 0.05);
+      ctx.stroke();
+    }
+
+    // head
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.72, w * 0.3, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  function drawPinya(cx, gy, radius) {
+    ctx.strokeStyle = "#1c1c1c";
+    ctx.fillStyle = "#e3ddcf";
+    ctx.lineWidth = 2.2;
+    // A mound of heads/shoulders
+    const rows = 3;
+    for (let r = 0; r < rows; r++) {
+      const ry = gy - r * 16;
+      const count = 9 - r * 2;
+      const spread = radius * (1 - r * 0.18);
+      for (let i = 0; i < count; i++) {
+        const t = count === 1 ? 0.5 : i / (count - 1);
+        const px = cx - spread + t * spread * 2;
+        const hr = 15 - r;
+        ctx.beginPath();
+        ctx.arc(px, ry, hr, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+      }
+    }
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ---------- Loop ----------
+  let last = performance.now();
+  function frame(now) {
+    let dt = (now - last) / 1000;
+    last = now;
+    if (dt > 0.05) dt = 0.05; // clamp
+    update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  // ---------- Screens ----------
+  const startScreen = document.getElementById("startScreen");
+  const endScreen = document.getElementById("endScreen");
+
+  function begin() {
+    newGame();
+    state.phase = PHASE.UP;
+    startScreen.classList.add("hidden");
+    endScreen.classList.add("hidden");
+    statusEl.style.display = "";
+  }
+
+  function showEnd() {
+    const r = state.result;
+    const emoji = document.getElementById("endEmoji");
+    const title = document.getElementById("endTitle");
+    const sub = document.getElementById("endSub");
+    if (r.ok) {
+      emoji.textContent = "🎉";
+      title.textContent = "Descarregat!";
+      sub.textContent = "Pilar complet. Faixa amunt!";
+    } else if (state.placed >= N) {
+      // Reached top but fell on the way down
+      emoji.textContent = "😬";
+      title.textContent = "Carregat… però llenya!";
+      sub.textContent = r.reason + " L'enxaneta ha coronat, però no s'ha descarregat.";
+    } else {
+      emoji.textContent = "💥";
+      title.textContent = "Llenya!";
+      sub.textContent = r.reason;
+    }
+    endScreen.classList.remove("hidden");
+  }
+
+  document.getElementById("startBtn").addEventListener("click", begin);
+  document.getElementById("retryBtn").addEventListener("click", begin);
+
+  newGame(); // so the pinya/segon render behind the start screen
+})();
+</script>
+</body>
+</html>
