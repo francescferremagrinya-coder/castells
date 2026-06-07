@@ -123,54 +123,75 @@ function darken(hex, f) {
   const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f);
   return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
 }
-// The pinya: a packed crowd seen from above/behind. Heads and mocadors (some of
-// each) with arms over each other's shoulders — as done with no folre.
+// The pinya (no folre): everyone faces the tower and looks DOWN, huddled around
+// the base. We only see napes, hair and mocadors (NO faces), and each one's arms
+// stretched forward toward the casteller in front (inward, toward the centre).
+function pinyaPerson(x, ry, s, dir, kind) {
+  const OUT = "#202a31";
+  // back / shoulders (a bent-over hump), shaded
+  const grd = ctx.createLinearGradient(x - s, 0, x + s, 0);
+  grd.addColorStop(0, COLLA.shirtDark); grd.addColorStop(0.5, COLLA.shirt); grd.addColorStop(1, COLLA.shirtDark);
+  ctx.fillStyle = grd; ctx.strokeStyle = OUT; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.ellipse(x, ry + s * 0.45, s * 1.12, s * 0.98, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // arm reaching forward toward the centre
+  ctx.strokeStyle = COLLA.shirtDark; ctx.lineWidth = s * 0.4; ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x + dir * s * 0.5, ry + s * 0.55);
+  ctx.quadraticCurveTo(x + dir * s * 1.3, ry + s * 0.45, x + dir * s * 1.7, ry + s * 0.1);
+  ctx.stroke();
+  // head from behind/above, tilted toward centre — hair or mocador, NO face
+  const hx = x + dir * s * 0.18, hy = ry - s * 0.45, hr = s * 0.64;
+  ctx.fillStyle = kind === "moc" ? COLLA.shirt : "#3a2c20";
+  ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  if (kind === "moc") { // knot of the mocador at the nape
+    ctx.fillStyle = darken(COLLA.shirt, 0.7);
+    ctx.beginPath(); ctx.arc(hx - dir * hr * 0.6, hy + hr * 0.5, hr * 0.28, 0, Math.PI * 2); ctx.fill();
+  }
+  // nape (clatell) hint at the bottom of the head
+  ctx.fillStyle = COLLA.skin;
+  ctx.beginPath(); ctx.arc(hx, hy + hr * 0.62, hr * 0.42, 0.15 * Math.PI, 0.85 * Math.PI); ctx.fill();
+}
+
 function drawPinya(cx, gy, radius) {
   const OUT = "#202a31";
+  // dense mound: back rows narrower & higher, front rows wider & lower
   const rows = [
-    { n: 9, y: -40, s: 8.5, spread: 0.86 },
-    { n: 11, y: -22, s: 9.5, spread: 0.96 },
-    { n: 13, y: -2, s: 10.5, spread: 1.04 },
+    { dy: -48, hw: radius * 0.5, s: 7.5 },
+    { dy: -35, hw: radius * 0.72, s: 8.5 },
+    { dy: -20, hw: radius * 0.91, s: 9.5 },
+    { dy: -3, hw: radius * 1.06, s: 10.5 },
   ];
-  for (const row of rows) {
-    const ry = gy + row.y, s = row.s, span = radius * row.spread;
-    const px = (i) => cx - span + (row.n === 1 ? 0.5 : i / (row.n - 1)) * span * 2;
-    // backs / shoulders
-    for (let i = 0; i < row.n; i++) {
-      const x = px(i);
-      const grd = ctx.createLinearGradient(x - s, 0, x + s, 0);
-      grd.addColorStop(0, COLLA.shirtDark); grd.addColorStop(0.5, COLLA.shirt); grd.addColorStop(1, COLLA.shirtDark);
-      ctx.fillStyle = grd; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(x - s * 1.25, ry + s * 1.5);
-      ctx.quadraticCurveTo(x - s * 1.3, ry - s * 0.45, x, ry - s * 0.55);
-      ctx.quadraticCurveTo(x + s * 1.3, ry - s * 0.45, x + s * 1.25, ry + s * 1.5);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
-    }
-    // arms draped over the neighbours' shoulders (the lock without folre)
-    ctx.strokeStyle = COLLA.shirtDark; ctx.lineWidth = s * 0.55; ctx.lineCap = "round";
-    for (let i = 0; i < row.n - 1; i++) {
-      const a = px(i), b = px(i + 1);
-      ctx.beginPath();
-      ctx.moveTo(a + s * 0.15, ry + s * 0.05);
-      ctx.quadraticCurveTo((a + b) / 2, ry - s * 0.95, b - s * 0.15, ry + s * 0.05);
-      ctx.stroke();
-    }
-    // heads — alternate mocador (colla colour) and bare head
-    for (let i = 0; i < row.n; i++) {
-      const x = px(i), hy = ry - s * 0.65, hr = s * 0.7;
-      ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.3;
-      ctx.beginPath(); ctx.arc(x, hy, hr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      if ((i * 3 + row.n) % 2 === 0) {
-        ctx.fillStyle = COLLA.shirt; // mocador
-        ctx.beginPath(); ctx.arc(x, hy, hr, Math.PI * 1.02, Math.PI * 1.98); ctx.fill();
-        ctx.strokeStyle = OUT; ctx.lineWidth = 1.1; ctx.stroke();
-      } else {
-        ctx.fillStyle = "#3a2c20"; // hair
-        ctx.beginPath(); ctx.arc(x, hy, hr, Math.PI * 1.08, Math.PI * 1.92); ctx.fill();
+  rows.forEach((row, ri) => {
+    const ry = gy + row.dy, s = row.s, step = s * 1.3;
+    const count = Math.floor((row.hw * 2) / step) + 1;
+    const startX = cx - (count - 1) * step / 2 + (ri % 2) * step * 0.5;
+    const xs = [];
+    for (let i = 0; i < count; i++) xs.push(startX + i * step);
+    xs.sort((a, b) => Math.abs(b - cx) - Math.abs(a - cx)); // outer first, centre on top
+    for (const x of xs) {
+      const dir = x <= cx ? 1 : -1;
+      const moc = Math.round((x - startX) / step) % 2 === 0;
+      // shoulders behind the head
+      ctx.fillStyle = COLLA.shirtDark; ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(x, ry + s * 0.75, s * 1.05, s * 0.82, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // arm stretched forward toward the centre (front rows only, to avoid clutter)
+      if (ri >= 2) {
+        ctx.strokeStyle = COLLA.shirtDark; ctx.lineWidth = s * 0.42; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(x + dir * s * 0.45, ry + s * 0.8);
+        ctx.quadraticCurveTo(x + dir * s * 1.2, ry + s * 0.8, x + dir * s * 1.5, ry + s * 1.05); ctx.stroke();
       }
+      // head from behind/above (looking down) — hair or mocador, NO face
+      const hr = s * 0.8, hy = ry;
+      ctx.fillStyle = moc ? COLLA.shirt : "#3a2c20"; ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(x, hy, hr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      if (moc) { ctx.fillStyle = darken(COLLA.shirt, 0.7); ctx.beginPath(); ctx.arc(x, hy + hr * 0.42, hr * 0.22, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.strokeStyle = "#2a2018"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, hy - hr * 0.7); ctx.lineTo(x, hy + hr * 0.5); ctx.stroke(); }
+      // nape (clatell) hint
+      ctx.fillStyle = COLLA.skin;
+      ctx.beginPath(); ctx.arc(x, hy + hr * 0.68, hr * 0.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.fill();
     }
-  }
+  });
 }
 // ---- END copy ----
 
