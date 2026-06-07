@@ -123,22 +123,52 @@ function darken(hex, f) {
   const r = Math.round(((n >> 16) & 255) * f), g = Math.round(((n >> 8) & 255) * f), b = Math.round((n & 255) * f);
   return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
 }
+// The pinya: a packed crowd seen from above/behind. Heads and mocadors (some of
+// each) with arms over each other's shoulders — as done with no folre.
 function drawPinya(cx, gy, radius) {
-  ctx.lineWidth = 1.6;
-  const rows = 3;
-  for (let r = rows - 1; r >= 0; r--) {
-    const ry = gy - r * 15;
-    const count = 11 - r * 2;
-    const spread = radius * (1 - r * 0.16);
-    const shade = r === 0 ? COLLA.shirt : (r === 1 ? COLLA.shirtDark : darken(COLLA.shirt, 0.62));
-    for (let i = 0; i < count; i++) {
-      const t = count === 1 ? 0.5 : i / (count - 1);
-      const px = cx - spread + t * spread * 2;
-      const headR = 14 - r * 1.5;
-      ctx.fillStyle = shade; ctx.strokeStyle = "#1b2730";
-      ctx.beginPath(); ctx.arc(px, ry + headR * 0.6, headR * 1.15, Math.PI, 0); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = COLLA.skin;
-      ctx.beginPath(); ctx.arc(px, ry, headR * 0.62, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  const OUT = "#202a31";
+  const rows = [
+    { n: 9, y: -40, s: 8.5, spread: 0.86 },
+    { n: 11, y: -22, s: 9.5, spread: 0.96 },
+    { n: 13, y: -2, s: 10.5, spread: 1.04 },
+  ];
+  for (const row of rows) {
+    const ry = gy + row.y, s = row.s, span = radius * row.spread;
+    const px = (i) => cx - span + (row.n === 1 ? 0.5 : i / (row.n - 1)) * span * 2;
+    // backs / shoulders
+    for (let i = 0; i < row.n; i++) {
+      const x = px(i);
+      const grd = ctx.createLinearGradient(x - s, 0, x + s, 0);
+      grd.addColorStop(0, COLLA.shirtDark); grd.addColorStop(0.5, COLLA.shirt); grd.addColorStop(1, COLLA.shirtDark);
+      ctx.fillStyle = grd; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(x - s * 1.25, ry + s * 1.5);
+      ctx.quadraticCurveTo(x - s * 1.3, ry - s * 0.45, x, ry - s * 0.55);
+      ctx.quadraticCurveTo(x + s * 1.3, ry - s * 0.45, x + s * 1.25, ry + s * 1.5);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    // arms draped over the neighbours' shoulders (the lock without folre)
+    ctx.strokeStyle = COLLA.shirtDark; ctx.lineWidth = s * 0.55; ctx.lineCap = "round";
+    for (let i = 0; i < row.n - 1; i++) {
+      const a = px(i), b = px(i + 1);
+      ctx.beginPath();
+      ctx.moveTo(a + s * 0.15, ry + s * 0.05);
+      ctx.quadraticCurveTo((a + b) / 2, ry - s * 0.95, b - s * 0.15, ry + s * 0.05);
+      ctx.stroke();
+    }
+    // heads — alternate mocador (colla colour) and bare head
+    for (let i = 0; i < row.n; i++) {
+      const x = px(i), hy = ry - s * 0.65, hr = s * 0.7;
+      ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(x, hy, hr, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      if ((i * 3 + row.n) % 2 === 0) {
+        ctx.fillStyle = COLLA.shirt; // mocador
+        ctx.beginPath(); ctx.arc(x, hy, hr, Math.PI * 1.02, Math.PI * 1.98); ctx.fill();
+        ctx.strokeStyle = OUT; ctx.lineWidth = 1.1; ctx.stroke();
+      } else {
+        ctx.fillStyle = "#3a2c20"; // hair
+        ctx.beginPath(); ctx.arc(x, hy, hr, Math.PI * 1.08, Math.PI * 1.92); ctx.fill();
+      }
     }
   }
 }
