@@ -10,6 +10,7 @@ const ctx = canvas.getContext("2d");
 const COLLA = { name: "Test", shirt: "#2f6f8f", shirtDark: "#255a74", faixa: "#15212a", skin: "#e9c19a", pants: "#f1ece0" };
 const N = 6;
 let levelH = 48;
+let ANIM = 0; // animation clock (0 in static QA render)
 
 function roundRect(x, y, w, h, r) {
   ctx.moveTo(x + r, y);
@@ -36,85 +37,103 @@ function quadLimb(ax, ay, aw, bx, by, bw, fill, stroke) {
 function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing) {
   const u = levelH;
   const L = u * 0.55, T = u * 0.45;
-  const hipY = -L, shoY = -(L + T);
+  const breath = Math.sin(ANIM * 1.8 + idx * 0.9) * u * 0.012;
+  const hipY = -L, shoY = -(L + T) - breath;
   const sw = u * (isTop ? 0.155 : 0.185);
   const hw = u * 0.1;
   const fs = u * 0.165;
-  const R = u * 0.145;
-  const headY = shoY - R * 1.12;
+  const R = u * 0.15;
+  const headY = shoY - R * 1.1;
   const OUT = "#202a31";
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(x, y);
   ctx.lineJoin = "round"; ctx.lineCap = "round";
+
+  ctx.fillStyle = "rgba(20,28,34,.18)";
+  ctx.beginPath(); ctx.ellipse(0, u * 0.04, u * 0.32, u * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+
   const hand = (hx, hy) => {
     ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
     ctx.beginPath(); ctx.arc(hx, hy, u * 0.05, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   };
-  // arm: short shirt sleeve to the elbow, then bare forearm to the hand
   const arm = (sx, sy, ex, ey, hx, hy) => {
-    quadLimb(sx, sy, u * 0.06, ex, ey, u * 0.05, COLLA.shirt, OUT);   // sleeve
-    quadLimb(ex, ey, u * 0.045, hx, hy, u * 0.038, COLLA.skin, OUT);  // forearm
+    quadLimb(sx, sy, u * 0.062, ex, ey, u * 0.05, COLLA.shirt, OUT);
+    quadLimb(ex, ey, u * 0.045, hx, hy, u * 0.038, COLLA.skin, OUT);
     hand(hx, hy);
   };
 
   // --- legs (trousers) + shoes ---
-  quadLimb(-fs, 0, u * 0.082, -hw, hipY, u * 0.088, COLLA.pants, "rgba(27,39,48,.3)");
-  quadLimb(fs, 0, u * 0.082, hw, hipY, u * 0.088, COLLA.pants, "rgba(27,39,48,.3)");
+  quadLimb(-fs, 0, u * 0.085, -hw, hipY, u * 0.092, COLLA.pants, OUT);
+  quadLimb(fs, 0, u * 0.085, hw, hipY, u * 0.092, COLLA.pants, OUT);
+  ctx.strokeStyle = "rgba(20,28,34,.12)"; ctx.lineWidth = u * 0.05;
+  ctx.beginPath(); ctx.moveTo(-fs * 0.5, hipY + u * 0.05); ctx.lineTo(-hw * 0.2, -u * 0.02); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(fs * 0.5, hipY + u * 0.05); ctx.lineTo(hw * 0.2, -u * 0.02); ctx.stroke();
   ctx.fillStyle = "#39302a"; ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
   ctx.beginPath(); ctx.ellipse(-fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.beginPath(); ctx.ellipse(fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-  // --- torso (shirt) with shading ---
+  // --- torso (shirt) with volume ---
+  const torsoPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(-hw, hipY + u * 0.04);
+    ctx.lineTo(-sw, shoY + u * 0.06);
+    ctx.quadraticCurveTo(-sw, shoY - u * 0.05, -sw * 0.5, shoY - u * 0.05);
+    ctx.lineTo(sw * 0.5, shoY - u * 0.05);
+    ctx.quadraticCurveTo(sw, shoY - u * 0.05, sw, shoY + u * 0.06);
+    ctx.lineTo(hw, hipY + u * 0.04);
+    ctx.closePath();
+  };
   const g = ctx.createLinearGradient(-sw, 0, sw, 0);
   g.addColorStop(0, COLLA.shirtDark); g.addColorStop(0.4, COLLA.shirt); g.addColorStop(0.62, COLLA.shirt); g.addColorStop(1, COLLA.shirtDark);
   ctx.fillStyle = g; ctx.strokeStyle = OUT; ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  ctx.moveTo(-hw, hipY + u * 0.04);
-  ctx.lineTo(-sw, shoY + u * 0.06);
-  ctx.quadraticCurveTo(-sw, shoY - u * 0.05, -sw * 0.5, shoY - u * 0.05);
-  ctx.lineTo(sw * 0.5, shoY - u * 0.05);
-  ctx.quadraticCurveTo(sw, shoY - u * 0.05, sw, shoY + u * 0.06);
-  ctx.lineTo(hw, hipY + u * 0.04);
-  ctx.closePath(); ctx.fill(); ctx.stroke();
-  // highlight stripe
-  ctx.fillStyle = "rgba(255,255,255,.12)";
-  ctx.beginPath(); roundRect(-sw * 0.45, shoY, u * 0.06, T * 0.8, u * 0.02); ctx.fill();
+  torsoPath(); ctx.fill(); ctx.stroke();
+  ctx.save(); torsoPath(); ctx.clip();
+  const gv = ctx.createLinearGradient(0, shoY, 0, hipY);
+  gv.addColorStop(0, "rgba(255,255,255,.16)"); gv.addColorStop(0.5, "rgba(255,255,255,0)"); gv.addColorStop(1, "rgba(0,0,0,.16)");
+  ctx.fillStyle = gv; torsoPath(); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.1)";
+  ctx.beginPath(); ctx.ellipse(-sw * 0.3, shoY + T * 0.35, sw * 0.35, T * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 
   // --- faixa ---
   ctx.fillStyle = COLLA.faixa;
   ctx.beginPath(); roundRect(-hw * 1.25, hipY - u * 0.04, hw * 2.5, u * 0.18, u * 0.03); ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-hw, hipY + u * 0.04); ctx.lineTo(hw, hipY + u * 0.04); ctx.stroke();
 
-  // --- arms (in front of torso so the gripping reads) ---
+  // --- arms ---
   if (aleta) {
-    arm(sw * 0.7, shoY + u * 0.05, sw * 1.1, shoY - u * 0.12, sw * 1.35, shoY - u * 0.55); // raised
-    arm(-sw * 0.7, shoY + u * 0.05, -sw * 1.05, hipY - u * 0.08, -hw * 1.15, hipY + u * 0.02); // resting
+    arm(sw * 0.7, shoY + u * 0.05, sw * 1.1, shoY - u * 0.12, sw * 1.32, shoY - u * 0.56);
+    arm(-sw * 0.7, shoY + u * 0.05, -sw * 1.05, hipY - u * 0.08, -hw * 1.15, hipY + u * 0.02);
   } else if (climbing) {
     arm(-sw * 0.6, shoY + u * 0.05, -sw * 0.5, shoY - u * 0.2, -u * 0.07, shoY - u * 0.46);
     arm(sw * 0.6, shoY + u * 0.05, sw * 0.5, shoY - u * 0.2, u * 0.07, shoY - u * 0.46);
   } else {
-    // reach up and grip the calves of the casteller above (to the sides)
-    arm(-sw * 0.75, shoY + u * 0.05, -sw * 1.0, shoY - u * 0.04, -fs * 0.95, shoY - u * 0.22);
-    arm(sw * 0.75, shoY + u * 0.05, sw * 1.0, shoY - u * 0.04, fs * 0.95, shoY - u * 0.22);
+    arm(-sw * 0.75, shoY + u * 0.05, -sw * 1.02, shoY - u * 0.04, -fs * 0.95, shoY - u * 0.22);
+    arm(sw * 0.75, shoY + u * 0.05, sw * 1.02, shoY - u * 0.04, fs * 0.95, shoY - u * 0.22);
   }
 
   // --- neck + head ---
   ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
   ctx.beginPath(); roundRect(-u * 0.05, shoY - u * 0.06, u * 0.1, u * 0.1, u * 0.03); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.arc(0, headY, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // hair
-  ctx.fillStyle = "#3a2c20";
-  ctx.beginPath(); ctx.arc(0, headY, R, Math.PI * 1.12, Math.PI * 1.88); ctx.fill();
-  // bandana (mocador) band across the forehead
-  ctx.strokeStyle = COLLA.shirt; ctx.lineWidth = u * 0.05; ctx.lineCap = "round";
-  ctx.beginPath(); ctx.arc(0, headY, R * 0.92, Math.PI * 1.18, Math.PI * 1.82); ctx.stroke();
-  ctx.lineCap = "round";
-  // face
+  ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.save(); ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(R * 0.25, headY - R, R, R * 2);
+  ctx.fillStyle = "#33271c";
+  ctx.beginPath(); ctx.ellipse(-R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.95);
+  ctx.fillStyle = darken(COLLA.shirt, 0.78); ctx.fillRect(-R, headY - R * 0.12, R * 2, R * 0.06);
+  ctx.restore();
+  ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(R * 0.86, headY - R * 0.25, R * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.fillStyle = "#2a2018";
-  ctx.beginPath(); ctx.arc(-R * 0.33, headY + R * 0.18, R * 0.12, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(R * 0.33, headY + R * 0.18, R * 0.12, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = "rgba(120,70,50,.5)"; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(0, headY + R * 0.38, R * 0.28, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+  ctx.beginPath(); ctx.arc(-R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(120,75,55,.55)"; ctx.lineWidth = 1.1;
+  ctx.beginPath(); ctx.moveTo(0, headY + R * 0.2); ctx.lineTo(-R * 0.06, headY + R * 0.42); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, headY + R * 0.5, R * 0.24, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
 
   ctx.restore();
 }
@@ -222,3 +241,15 @@ function render(placed, climbing, goingUp, prog, file) {
 
 render(6, false, true, 0, "/tmp/full.png");
 render(3, true, true, 0.6, "/tmp/climb.png");
+
+// zoomed single figure for detail inspection
+(function () {
+  const grd = ctx.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, "#cfe3ee"); grd.addColorStop(1, "#e8eedf");
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
+  levelH = 220;
+  ctx.save(); ctx.translate(W / 2, H * 0.78); drawCasteller(0, 0, 1, false, false, 1, false); ctx.restore();
+  ctx.save(); ctx.translate(W / 2 - 130, H * 0.78); drawCasteller(0, 0, 5, true, true, 1, false); ctx.restore();
+  fs.writeFileSync("/tmp/figure.png", canvas.toBuffer("image/png"));
+  console.log("wrote /tmp/figure.png");
+})();
