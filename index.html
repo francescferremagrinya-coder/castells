@@ -36,6 +36,28 @@
   .btn:active { transform: scale(.96); }
   .hint { margin-top: 22px; font-size: 12px; color: #6b7a84; max-width: 300px; line-height: 1.5; }
   .res-sub { font-size: 16px; color: #4a5a66; margin-bottom: 24px; max-width: 320px; line-height: 1.5; }
+
+  /* Colla creator + menu */
+  .pv { width: 84px; height: 120px; }
+  .preview { margin-bottom: 16px; }
+  .txt { pointer-events: auto; font-size: 17px; padding: 12px 16px; border: 2px solid #c2cdd4; border-radius: 12px; width: min(86%,300px); text-align: center; margin-bottom: 18px; background: #fff; color: #1c2a33; }
+  .txt:focus { outline: none; border-color: #2f6f8f; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; max-width: 300px; margin-bottom: 26px; pointer-events: auto; }
+  .sw { width: 42px; height: 42px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; box-shadow: 0 1px 4px rgba(0,0,0,.2); transition: transform .08s; padding: 0; }
+  .sw.sel { border-color: #1c2a33; transform: scale(1.12); }
+  .sw:active { transform: scale(.95); }
+  .colla-tag { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #2c3942; margin-bottom: 6px; }
+  .colla-dot { width: 16px; height: 16px; border-radius: 50%; background: #2f6f8f; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .castell-list { display: flex; flex-direction: column; gap: 10px; width: min(90%,360px); margin-bottom: 22px; pointer-events: auto; }
+  .castell { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 2px solid #dfe6ea; border-radius: 14px; padding: 14px 16px; cursor: pointer; transition: transform .08s; }
+  .castell.play:active { transform: scale(.98); }
+  .castell.lock { cursor: default; }
+  .castell .c-name { font-size: 16px; font-weight: 700; color: #1c2a33; }
+  .castell .c-meta { font-size: 12px; color: #6b7a84; margin-top: 2px; }
+  .castell .c-best { font-size: 13px; font-weight: 700; color: #2f6f8f; }
+  .btn-ghost { pointer-events: auto; background: transparent; color: #2c3942; border: 2px solid #b9c4cb; font-size: 15px; font-weight: 700; padding: 11px 26px; border-radius: 30px; cursor: pointer; }
+  .btn-ghost:active { transform: scale(.96); }
+  .btn-row { display: flex; gap: 12px; align-items: center; }
 </style>
 </head>
 <body>
@@ -56,19 +78,47 @@
   </div>
 </div>
 
-<div class="overlay" id="startScreen">
-  <div class="big">🏰</div>
-  <h1>PILAR</h1>
-  <div class="sub">Aixeca el pilar mantenint l'equilibri. Els castellers s'enfilen un a un des de la pinya fins que l'enxaneta fa l'aleta… i després cal descarregar sense fer llenya.</div>
-  <button class="btn" id="startBtn">Comença</button>
-  <div class="hint">Mantén la torre centrada amb <b>◀ ▶</b> (o les fletxes del teclat). Toca el costat cap on vols empènyer.</div>
+<!-- Colla creator -->
+<div class="overlay" id="creatorScreen">
+  <h1 style="margin-bottom:2px">La teva colla</h1>
+  <div class="sub" style="margin-bottom:14px">Posa-li nom i tria el color de la camisa.</div>
+  <svg class="pv preview" viewBox="0 0 60 90" xmlns="http://www.w3.org/2000/svg">
+    <rect x="22" y="58" width="6" height="24" rx="3" fill="#f1ece0" stroke="#1b2730" stroke-width="1.5"/>
+    <rect x="32" y="58" width="6" height="24" rx="3" fill="#f1ece0" stroke="#1b2730" stroke-width="1.5"/>
+    <rect class="pv-shirt" x="15" y="30" width="30" height="34" rx="10" fill="#2f6f8f" stroke="#1b2730" stroke-width="1.6"/>
+    <rect x="15" y="50" width="30" height="11" rx="3" fill="#15212a"/>
+    <circle cx="30" cy="22" r="10" fill="#e9c19a" stroke="#1b2730" stroke-width="1.6"/>
+  </svg>
+  <input id="collaName" class="txt" maxlength="22" placeholder="Nom de la colla">
+  <div class="swatches" id="swatches"></div>
+  <button class="btn" id="foundBtn">Fundar la colla</button>
 </div>
 
+<!-- Main menu -->
+<div class="overlay hidden" id="menuScreen">
+  <div class="colla-tag"><span class="colla-dot" id="collaDot"></span><span id="collaNameLbl">La meva colla</span></div>
+  <svg class="pv" viewBox="0 0 60 90" xmlns="http://www.w3.org/2000/svg">
+    <rect x="22" y="58" width="6" height="24" rx="3" fill="#f1ece0" stroke="#1b2730" stroke-width="1.5"/>
+    <rect x="32" y="58" width="6" height="24" rx="3" fill="#f1ece0" stroke="#1b2730" stroke-width="1.5"/>
+    <rect class="pv-shirt" x="15" y="30" width="30" height="34" rx="10" fill="#2f6f8f" stroke="#1b2730" stroke-width="1.6"/>
+    <rect x="15" y="50" width="30" height="11" rx="3" fill="#15212a"/>
+    <circle cx="30" cy="22" r="10" fill="#e9c19a" stroke="#1b2730" stroke-width="1.6"/>
+  </svg>
+  <h1 style="margin:6px 0 2px">Castells</h1>
+  <div class="sub" style="margin-bottom:16px">Tria el repte. Descarrega'l per guanyar punts.</div>
+  <div class="castell-list" id="castellList"></div>
+  <button class="btn-ghost" id="editCollaBtn">Editar la colla</button>
+</div>
+
+<!-- Result -->
 <div class="overlay hidden" id="endScreen">
   <div class="big" id="endEmoji">🎉</div>
   <h1 id="endTitle">Descarregat!</h1>
   <div class="res-sub" id="endSub"></div>
-  <button class="btn" id="retryBtn">Una altra</button>
+  <div class="btn-row">
+    <button class="btn-ghost" id="menuBtn">Menú</button>
+    <button class="btn" id="retryBtn">Una altra</button>
+  </div>
 </div>
 
 <script>
@@ -89,14 +139,53 @@
   window.addEventListener("resize", resize);
   resize();
 
-  // ---- Colla (col·lmajor identity) ----
+  // ---- Colla (player identity) ----
   const COLLA = {
+    name: "La meva colla",
     shirt: "#2f6f8f",   // camisa
     shirtDark: "#255a74",
     faixa: "#15212a",   // faixa negra
     skin: "#e9c19a",
     pants: "#f1ece0",
   };
+
+  // Palette of shirt colours (generic names, no real colla branding).
+  const PALETTE = [
+    { n: "Verd", c: "#3a8c4f" }, { n: "Rosa", c: "#d76a93" },
+    { n: "Vermell", c: "#c8402f" }, { n: "Lila", c: "#7d5ba6" },
+    { n: "Blau", c: "#2f6f8f" }, { n: "Granat", c: "#7a2230" },
+    { n: "Taronja", c: "#e08a2e" }, { n: "Turquesa", c: "#2bb3a3" },
+    { n: "Groc", c: "#d9b42b" }, { n: "Negre", c: "#2b3036" },
+  ];
+
+  function darken(hex, f) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = Math.round(((n >> 16) & 255) * f);
+    const g = Math.round(((n >> 8) & 255) * f);
+    const b = Math.round((n & 255) * f);
+    return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+  }
+  function setShirt(hex) { COLLA.shirt = hex; COLLA.shirtDark = darken(hex, 0.8); }
+
+  // ---- Castells (challenges) ----
+  const CASTELLS = [
+    { id: "pilar6", name: "Pilar de 6", meta: "6 pisos · l'inici", levels: 6, locked: false, pts: { desc: 100, carr: 60 } },
+    { id: "pilar7", name: "Pilar de 7", meta: "Properament", levels: 7, locked: true },
+    { id: "3de7", name: "Tres de set", meta: "Properament", levels: 7, locked: true },
+  ];
+
+  // ---- Save / load ----
+  const SAVE_KEY = "castells_save_v1";
+  let save = { colla: null, best: {} };
+  function loadSave() {
+    try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
+  }
+  function persist() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+  }
+
+  let screen = "creator";       // "creator" | "menu" | "game"
+  let curCastell = CASTELLS[0];
 
   const TRUNK = ["Segon", "Terç", "Quart", "Quint", "Acotxador", "Enxaneta"];
   const N = TRUNK.length;
@@ -146,8 +235,8 @@
 
   // ---- Logic ----
   function difficulty() {
-    const heightFactor = 0.5 + state.placed * 0.22;
-    const climbFactor = state.climbing ? 1.4 : 1;
+    const heightFactor = 0.55 + state.placed * 0.26;
+    const climbFactor = state.climbing ? 1.45 : 1;
     const fatigueFactor = 1 + (1 - state.fatigue) * 0.6;
     return heightFactor * climbFactor * fatigueFactor;
   }
@@ -163,8 +252,8 @@
 
     noiseT += dt;
     const wobble = Math.sin(noiseT * 2.1) * 0.5 + Math.sin(noiseT * 5.3 + 1.3) * 0.3 + (Math.random() - 0.5) * 0.5;
-    state.leanVel += wobble * diff * 0.30 * dt;
-    state.leanVel += state.lean * diff * 1.1 * dt;     // instability (grows with height)
+    state.leanVel += wobble * diff * 0.34 * dt;
+    state.leanVel += state.lean * diff * 1.2 * dt;     // instability (grows with height)
 
     const control = 2.1;
     if (input.left) state.leanVel -= control * dt;
@@ -232,7 +321,6 @@
 
   // ---- Geometry helpers ----
   let levelH = 46, baseY = 0, cxBase = 0;
-  const MAX_ANGLE = 0.26;
 
   // ---- Rendering ----
   function draw() {
@@ -240,7 +328,6 @@
     const grd = ctx.createLinearGradient(0, 0, 0, H);
     grd.addColorStop(0, "#cfe3ee"); grd.addColorStop(1, "#e8eedf");
     ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
-    if (!state) return;
 
     const groundY = H * 0.84;
     // ground
@@ -248,16 +335,27 @@
     ctx.strokeStyle = "rgba(60,54,44,.18)"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, groundY + 4); ctx.lineTo(W, groundY + 4); ctx.stroke();
 
-    cxBase = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0);
+    if (screen !== "game" || !state) return;
+
+    const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
+    cxBase = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
     levelH = Math.min(48, (groundY - H * 0.12) / N);
     const pinyaTop = groundY - 42;
     baseY = pinyaTop - levelH * 0.25;   // raise the trunk so the segon sits on the pinya (knees up visible)
-    const angle = state.lean * MAX_ANGLE;
     const pinyaR = Math.min(W * 0.44, 230);
 
-    ctx.save();
-    ctx.translate(cxBase, baseY);
-    ctx.rotate(angle);
+    // A real pilar barely tilts — it FLEXES: the base stays firm and the sway
+    // accumulates upwards, so the enxaneta moves the most.
+    const topSway = state.lean * levelH * 1.05;
+    const bendX = (lvl) => topSway * Math.pow(lvl / (N - 1), 1.6);
+    const bendA = (lvl) => state.lean * 0.13 * (lvl / (N - 1));
+    const drawAt = (lvl, yOff, idx, isTop, aleta, climbing) => {
+      ctx.save();
+      ctx.translate(cxBase + bendX(lvl), baseY - levelH * lvl + (yOff || 0));
+      ctx.rotate(bendA(lvl));
+      drawCasteller(0, 0, idx, isTop, aleta, 1, climbing);
+      ctx.restore();
+    };
 
     // Climber first → drawn BEHIND the trunk, so it reads as climbing up the backs.
     if (state.climbing) {
@@ -265,20 +363,17 @@
       const startLevel = state.goingUp ? 0 : state.placed;
       const p = state.climbProg;
       const curLevel = startLevel + (targetLevel - startLevel) * p;
-      const y = -levelH * curLevel;
       const bob = Math.sin(p * N * Math.PI * 2) * levelH * 0.05;
       const idx = state.goingUp ? state.placed : (state.placed - 1);
-      drawCasteller(0, y + bob, idx, idx === N - 1, false, 1, true);
+      drawAt(curLevel, bob, idx, idx === N - 1, false, true);
     }
 
     // The standing trunk, on top of the climber.
     for (let i = 0; i < state.placed; i++) {
       const isEnx = i === N - 1;
       const aleta = isEnx && (state.phase === PHASE.ALETA || state.phase === PHASE.WIN);
-      drawCasteller(0, -levelH * i, i, isEnx, aleta, 1);
+      drawAt(i, 0, i, isEnx, aleta, false);
     }
-
-    ctx.restore();
 
     // Pinya drawn last (in front) so it hides the segon's feet → he sits in the pinya.
     drawPinya(cxBase, groundY, pinyaR);
@@ -356,7 +451,7 @@
       const ry = gy - r * 15;
       const count = 11 - r * 2;
       const spread = radius * (1 - r * 0.16);
-      const shade = r === 0 ? COLLA.shirt : (r === 1 ? COLLA.shirtDark : "#1f4d63");
+      const shade = r === 0 ? COLLA.shirt : (r === 1 ? COLLA.shirtDark : darken(COLLA.shirt, 0.62));
       for (let i = 0; i < count; i++) {
         const t = count === 1 ? 0.5 : i / (count - 1);
         const px = cx - spread + t * spread * 2;
@@ -385,32 +480,130 @@
   function frame(now) {
     let dt = (now - last) / 1000; last = now;
     if (dt > 0.05) dt = 0.05;
-    update(dt); draw();
+    if (screen === "game") update(dt);
+    draw();
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 
   // ---- Screens ----
-  const startScreen = document.getElementById("startScreen");
+  const uiEl = document.getElementById("ui");
+  const creatorScreen = document.getElementById("creatorScreen");
+  const menuScreen = document.getElementById("menuScreen");
   const endScreen = document.getElementById("endScreen");
-  function begin() {
-    newGame(); state.phase = PHASE.UP;
-    startScreen.classList.add("hidden"); endScreen.classList.add("hidden");
+  const collaNameInput = document.getElementById("collaName");
+  const swatchesEl = document.getElementById("swatches");
+  let pickedColor = COLLA.shirt;
+
+  function applyPreviewColor() {
+    document.querySelectorAll(".pv-shirt").forEach((el) => el.setAttribute("fill", pickedColor));
+    const dot = document.getElementById("collaDot");
+    if (dot) dot.style.background = COLLA.shirt;
   }
+
+  // Build colour swatches once.
+  PALETTE.forEach((p) => {
+    const b = document.createElement("button");
+    b.className = "sw"; b.style.background = p.c; b.title = p.n;
+    b.addEventListener("click", () => {
+      pickedColor = p.c;
+      swatchesEl.querySelectorAll(".sw").forEach((s) => s.classList.remove("sel"));
+      b.classList.add("sel");
+      applyPreviewColor();
+    });
+    swatchesEl.appendChild(b);
+  });
+
+  function markSwatch() {
+    const els = swatchesEl.querySelectorAll(".sw");
+    PALETTE.forEach((p, i) => els[i].classList.toggle("sel", p.c === pickedColor));
+  }
+
+  function showCreator() {
+    screen = "creator";
+    pickedColor = COLLA.shirt;
+    collaNameInput.value = COLLA.name === "La meva colla" && !save.colla ? "" : COLLA.name;
+    markSwatch(); applyPreviewColor();
+    uiEl.style.display = "none";
+    creatorScreen.classList.remove("hidden");
+    menuScreen.classList.add("hidden");
+    endScreen.classList.add("hidden");
+  }
+
+  function showMenu() {
+    screen = "menu";
+    document.getElementById("collaNameLbl").textContent = COLLA.name;
+    applyPreviewColor();
+    // (Re)build castell list.
+    const list = document.getElementById("castellList");
+    list.innerHTML = "";
+    CASTELLS.forEach((c) => {
+      const row = document.createElement("div");
+      row.className = "castell " + (c.locked ? "lock" : "play");
+      const best = save.best[c.id];
+      row.innerHTML =
+        '<div><div class="c-name">' + (c.locked ? "🔒 " : "") + c.name + '</div>' +
+        '<div class="c-meta">' + c.meta + '</div></div>' +
+        '<div class="c-best">' + (c.locked ? "" : (best ? best + " pts" : "Juga")) + '</div>';
+      if (!c.locked) row.addEventListener("click", () => begin(c));
+      list.appendChild(row);
+    });
+    uiEl.style.display = "none";
+    menuScreen.classList.remove("hidden");
+    creatorScreen.classList.add("hidden");
+    endScreen.classList.add("hidden");
+  }
+
+  function begin(castell) {
+    curCastell = castell || curCastell;
+    newGame(); state.phase = PHASE.UP;
+    screen = "game";
+    uiEl.style.display = "";
+    creatorScreen.classList.add("hidden");
+    menuScreen.classList.add("hidden");
+    endScreen.classList.add("hidden");
+  }
+
   function showEnd() {
     const r = state.result;
     const emoji = document.getElementById("endEmoji");
     const title = document.getElementById("endTitle");
     const sub = document.getElementById("endSub");
-    if (r.ok) { emoji.textContent = "🎉"; title.textContent = "Descarregat!"; sub.textContent = "Pilar complet, carregat i descarregat. Faixa amunt!"; }
-    else if (state.placed >= N) { emoji.textContent = "😬"; title.textContent = "Carregat… però llenya!"; sub.textContent = r.reason + " L'enxaneta ha coronat, però no s'ha descarregat."; }
-    else { emoji.textContent = "💥"; title.textContent = "Llenya!"; sub.textContent = r.reason; }
+    let pts = 0;
+    if (r.ok) {
+      pts = curCastell.pts.desc;
+      emoji.textContent = "🎉"; title.textContent = "Descarregat!";
+      sub.textContent = "Pilar complet, carregat i descarregat. +" + pts + " punts!";
+    } else if (state.placed >= N) {
+      pts = curCastell.pts.carr;
+      emoji.textContent = "😬"; title.textContent = "Carregat… però llenya!";
+      sub.textContent = r.reason + " Coronat però no descarregat. +" + pts + " punts.";
+    } else {
+      emoji.textContent = "💥"; title.textContent = "Llenya!";
+      sub.textContent = r.reason + " Cap punt aquesta vegada.";
+    }
+    if (pts > (save.best[curCastell.id] || 0)) { save.best[curCastell.id] = pts; persist(); }
+    uiEl.style.display = "none";
     endScreen.classList.remove("hidden");
   }
-  document.getElementById("startBtn").addEventListener("click", begin);
-  document.getElementById("retryBtn").addEventListener("click", begin);
 
-  newGame();
+  // Wire up buttons.
+  document.getElementById("foundBtn").addEventListener("click", () => {
+    const name = collaNameInput.value.trim();
+    COLLA.name = name || "La meva colla";
+    setShirt(pickedColor);
+    save.colla = { name: COLLA.name, color: COLLA.shirt };
+    persist();
+    showMenu();
+  });
+  document.getElementById("editCollaBtn").addEventListener("click", showCreator);
+  document.getElementById("menuBtn").addEventListener("click", showMenu);
+  document.getElementById("retryBtn").addEventListener("click", () => begin(curCastell));
+
+  // ---- Boot ----
+  loadSave();
+  if (save.colla) { COLLA.name = save.colla.name; setShirt(save.colla.color); showMenu(); }
+  else { showCreator(); }
 })();
 </script>
 </body>
