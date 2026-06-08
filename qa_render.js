@@ -34,15 +34,17 @@ function quadLimb(ax, ay, aw, bx, by, bw, fill, stroke) {
 }
 
 // ---- BEGIN copy of drawCasteller (keep in sync with index.html) ----
-function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part) {
+function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
   part = part || 0; // 0=all, 1=body only, 2=head only
+  opts = opts || {};
+  const back = !!opts.back, crouch = !!opts.crouch, legsApart = !!opts.legsApart;
   const u = levelH;
-  const L = u * 0.55, T = u * 0.45;
+  const L = u * (crouch ? 0.26 : 0.55), T = u * (crouch ? 0.42 : 0.45);
   const breath = Math.sin(ANIM * 1.8 + idx * 0.9) * u * 0.012;
   const hipY = -L, shoY = -(L + T) - breath;
   const sw = u * (isTop ? 0.155 : 0.185);
   const hw = u * 0.1;
-  const fs = u * 0.185;            // feet rest on the shoulders below (wide enough for the head to show)
+  const fs = u * (legsApart ? 0.32 : (crouch ? 0.28 : 0.185));
   const R = u * 0.135;
   const headY = shoY - R * 1.02;
   const OUT = "#202a31";
@@ -106,10 +108,14 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part) {
     ctx.beginPath(); ctx.moveTo(-hw, hipY + u * 0.04); ctx.lineTo(hw, hipY + u * 0.04); ctx.stroke();
 
     // --- arms ---
-    if (aleta) {
+    if (crouch) {
+      // hands resting on the knees, elbows out
+      arm(-sw * 0.7, shoY + u * 0.06, -fs * 0.9, hipY - u * 0.02, -fs * 0.85, hipY + u * 0.08);
+      arm(sw * 0.7, shoY + u * 0.06, fs * 0.9, hipY - u * 0.02, fs * 0.85, hipY + u * 0.08);
+    } else if (aleta) {
       arm(sw * 0.7, shoY + u * 0.05, sw * 1.1, shoY - u * 0.12, sw * 1.32, shoY - u * 0.56);
       arm(-sw * 0.7, shoY + u * 0.05, -sw * 1.05, hipY - u * 0.08, -hw * 1.15, hipY + u * 0.02);
-    } else if (climbing) {
+    } else if (climbing || back) {
       arm(-sw * 0.6, shoY + u * 0.05, -sw * 0.5, shoY - u * 0.2, -u * 0.07, shoY - u * 0.46);
       arm(sw * 0.6, shoY + u * 0.05, sw * 0.5, shoY - u * 0.2, u * 0.07, shoY - u * 0.46);
     } else {
@@ -131,14 +137,22 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part) {
     ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.95);
     ctx.fillStyle = darken(COLLA.shirt, 0.78); ctx.fillRect(-R, headY - R * 0.12, R * 2, R * 0.06);
     ctx.restore();
-    ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(R * 0.86, headY - R * 0.25, R * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = "#2a2018";
-    ctx.beginPath(); ctx.arc(-R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "rgba(120,75,55,.55)"; ctx.lineWidth = 1.1;
-    ctx.beginPath(); ctx.moveTo(0, headY + R * 0.2); ctx.lineTo(-R * 0.06, headY + R * 0.42); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, headY + R * 0.5, R * 0.24, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+    if (back) {
+      // seen from behind: mocador knot at the nape, hair, NO face
+      ctx.fillStyle = "#33271c"; ctx.beginPath(); ctx.ellipse(0, headY + R * 0.15, R * 0.7, R * 0.78, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.8);
+      ctx.fillStyle = darken(COLLA.shirt, 0.7); ctx.beginPath(); ctx.arc(0, headY - R * 0.1, R * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = COLLA.skin; ctx.beginPath(); ctx.arc(0, headY + R * 0.7, R * 0.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.fill();
+    } else {
+      ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(R * 0.86, headY - R * 0.25, R * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#2a2018";
+      ctx.beginPath(); ctx.arc(-R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(120,75,55,.55)"; ctx.lineWidth = 1.1;
+      ctx.beginPath(); ctx.moveTo(0, headY + R * 0.2); ctx.lineTo(-R * 0.06, headY + R * 0.42); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, headY + R * 0.5, R * 0.24, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+    }
   }
 
   ctx.restore();
@@ -251,6 +265,15 @@ render(3, true, true, 0.6, "/tmp/climb.png");
 
 // wide-trunk castell composition (Phase 1 of the new engine)
 function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
+// plan-view layout of a floor: people seen as a triangle/diamond (some at the back)
+function layout(w) {
+  if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
+  if (w === 2) return [{ dx: -0.42, dy: 0.04, back: false }, { dx: 0.42, dy: 0.04, back: false }];
+  if (w === 3) return [{ dx: 0, dy: -0.34, back: true }, { dx: -0.46, dy: 0.12, back: false }, { dx: 0.46, dy: 0.12, back: false }];
+  if (w === 4) return [{ dx: -0.3, dy: -0.32, back: true }, { dx: 0.3, dy: -0.32, back: true }, { dx: -0.56, dy: 0.12, back: false }, { dx: 0.56, dy: 0.12, back: false }];
+  return [{ dx: -0.34, dy: -0.34, back: true }, { dx: 0.34, dy: -0.34, back: true }, { dx: -0.62, dy: 0.12, back: false }, { dx: 0, dy: 0.16, back: false }, { dx: 0.62, dy: 0.12, back: false }].slice(0, w);
+}
+function floorMul(fi, F) { return fi === F - 2 ? 0.58 : 1; } // the acotxador crouches → short floor
 function renderCastell(floors, file) {
   const grd = ctx.createLinearGradient(0, 0, 0, H);
   grd.addColorStop(0, "#cfe3ee"); grd.addColorStop(1, "#e8eedf");
@@ -258,25 +281,30 @@ function renderCastell(floors, file) {
   const groundY = H * 0.84;
   ctx.fillStyle = "#d8cfb8"; ctx.fillRect(0, groundY + 4, W, H);
   const F = floors.length, maxW = Math.max.apply(null, floors);
-  levelH = Math.min(46, (groundY - H * 0.1) / (F + 1));
+  let acc = 0; for (let i = 0; i < F; i++) acc += floorMul(i, F);
+  levelH = Math.min(46, (groundY - H * 0.1) / (acc + 1.2));
   const baseY = groundY - 40 + levelH * 0.06, cxBase = W / 2;
-  const colSpacing = levelH * 0.44;
-  const drawFloor = (i, part) => {
-    const w = floors[i];
-    for (let j = 0; j < w; j++) {
-      const x = cxBase + (j - (w - 1) / 2) * colSpacing;
-      const isEnx = i === F - 1;
-      ctx.save(); ctx.translate(x, baseY - levelH * i); drawCasteller(0, 0, i, isEnx, isEnx, 1, false, part); ctx.restore();
+  const colSpacing = levelH * 0.46;
+  const fy = []; let c2 = 0; for (let i = 0; i < F; i++) { fy[i] = baseY - levelH * c2; c2 += floorMul(i, F); }
+  const drawFloor = (fi, part) => {
+    const w = floors[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
+    const lay = layout(w).slice().sort((a, b) => a.dy - b.dy);
+    for (const c of lay) {
+      const sc = c.back ? 0.9 : 1;
+      ctx.save(); ctx.translate(cxBase + c.dx * colSpacing, fy[fi] + c.dy * levelH); ctx.scale(sc, sc);
+      drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, part, { back: c.back, crouch: isAcot, legsApart: isEnx });
+      ctx.restore();
     }
   };
   for (let i = 0; i < F; i++) drawFloor(i, 1);
   for (let i = 0; i < F; i++) drawFloor(i, 2);
-  drawPinya(cxBase, groundY, Math.min(W * 0.46, 150 + maxW * 42));
+  drawPinya(cxBase, groundY, Math.min(W * 0.46, 130 + maxW * 46));
   fs.writeFileSync(file, canvas.toBuffer("image/png"));
   console.log("wrote", file);
 }
 renderCastell(wideFloors(3, 7), "/tmp/wide.png");      // 3 de 7
 renderCastell(wideFloors(4, 8), "/tmp/wide4.png");     // 4 de 8
+renderCastell([3, 2, 1, 1], "/tmp/pom.png");           // short, to inspect the pom de dalt
 
 // zoomed single figure for detail inspection
 (function () {

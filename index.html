@@ -322,6 +322,16 @@
     if (FLOORS[i] === 2 && i === F - 3) return "els dosos";
     return (FLOORS[i] > 1 ? ORDP : ORD)[i] || ("el pis " + (i + 1));
   }
+  // Plan-view layout of a floor: people form a triangle/diamond (some at the back,
+  // seen from behind; the front ones lower). dx in column units, dy in levelH units.
+  function layout(w) {
+    if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
+    if (w === 2) return [{ dx: -0.42, dy: 0.04, back: false }, { dx: 0.42, dy: 0.04, back: false }];
+    if (w === 3) return [{ dx: 0, dy: -0.34, back: true }, { dx: -0.46, dy: 0.12, back: false }, { dx: 0.46, dy: 0.12, back: false }];
+    if (w === 4) return [{ dx: -0.3, dy: -0.32, back: true }, { dx: 0.3, dy: -0.32, back: true }, { dx: -0.56, dy: 0.12, back: false }, { dx: 0.56, dy: 0.12, back: false }];
+    return [{ dx: -0.34, dy: -0.34, back: true }, { dx: 0.34, dy: -0.34, back: true }, { dx: -0.62, dy: 0.12, back: false }, { dx: 0, dy: 0.16, back: false }, { dx: 0.62, dy: 0.12, back: false }].slice(0, w);
+  }
+  const floorMul = (fi) => fi === F - 2 ? 0.58 : 1; // the acotxador crouches → short floor
   const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5 };
 
   let state = null;
@@ -453,7 +463,7 @@
     // toward the side it was leaning and pile onto the pinya
     const side = Math.sign(state.lean) || 1;
     state.debris = (state.pos || []).map((p) => ({
-      x: p.x, y: p.y, rot: p.rot, idx: p.idx, isTop: p.isTop,
+      x: p.x, y: p.y, rot: p.rot, idx: p.idx, isTop: p.isTop, sc: p.sc, back: p.back,
       vx: side * (40 + Math.random() * 120) + (Math.random() - 0.5) * 60,
       vy: -30 - Math.random() * 70,
       vr: (Math.random() - 0.5) * 7,
@@ -523,44 +533,47 @@
     ctx.beginPath(); ctx.ellipse(W / 2, groundY + 8, Math.min(W * 0.42, 215), 15, 0, 0, Math.PI * 2); ctx.fill();
 
     const maxW = Math.max.apply(null, FLOORS);
+    // cumulative vertical position of each floor (the pom is compressed)
+    const cum = []; let acc = 0; for (let i = 0; i < F; i++) { cum[i] = acc; acc += floorMul(i); }
+    const totalCum = acc;
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
     cxBase = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
-    levelH = Math.min(48, (groundY - H * 0.12) / (F + 1));
+    levelH = Math.min(48, (groundY - H * 0.12) / (totalCum + 1.2));
     const pinyaTop = groundY - 40;
     baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the pinya
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
-    const colSpacing = levelH * 0.44;
+    const colSpacing = levelH * 0.46;
     state.geo = { levelH: levelH, groundY: groundY, cxBase: cxBase, baseY: baseY };
+    const fyOf = (fi) => baseY - levelH * cum[fi];
 
     // --- the castell has fallen: castellers tumble onto the pinya ---
     if (state.phase === PHASE.FALL && state.debris) {
       drawPinya(cxBase, groundY, pinyaR);
       const ds = state.debris.slice().sort((a, b) => a.y - b.y);
       for (const d of ds) {
-        ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot);
-        drawCasteller(0, 0, d.idx, d.isTop, false, 1, false, 0);
+        ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot); ctx.scale(d.sc || 1, d.sc || 1);
+        drawCasteller(0, 0, d.idx, d.isTop, false, 1, false, 0, { back: d.back });
         ctx.restore();
       }
       return;
     }
 
-    // A real castell barely tilts — it FLEXES: the base stays firm and the sway
-    // accumulates upwards, so the top moves the most.
-    const topSway = state.lean * levelH * 1.0;
+    // A real castell barely tilts — it FLEXES: the sway accumulates upwards.
     const denom = Math.max(1, F - 1);
-    const bendX = (lvl) => topSway * Math.pow(lvl / denom, 1.6);
-    const bendA = (lvl) => state.lean * 0.12 * (lvl / denom);
+    const bendX = (frac) => state.lean * levelH * Math.pow(frac, 1.6);
+    const bendA = (frac) => state.lean * 0.12 * frac;
 
-    // Draw one floor (fi) of `w` people side by side, at vertical level `lvl`.
-    const drawFloor = (lvl, fi, yOff, climbing, part) => {
-      const w = FLOORS[fi];
-      const isEnx = fi === F - 1;
-      const ax = cxBase + bendX(lvl), ay = baseY - levelH * lvl + (yOff || 0), rot = bendA(lvl);
-      for (let j = 0; j < w; j++) {
-        const x = ax + (j - (w - 1) / 2) * colSpacing;
-        if (part === 1 && !climbing) state.pos.push({ x: x, y: ay, rot: rot, idx: fi, isTop: isEnx });
-        ctx.save(); ctx.translate(x, ay); ctx.rotate(rot);
-        drawCasteller(0, 0, fi, isEnx, isEnx && !climbing, 1, climbing, part);
+    // Draw one floor (fi) at vertical centre yc, as a triangle/diamond of people.
+    const drawFloor = (yc, fi, climbing, part) => {
+      const w = FLOORS[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
+      const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac);
+      const lay = layout(w).slice().sort((a, b) => a.dy - b.dy); // back first
+      for (const c of lay) {
+        const sc = c.back ? 0.9 : 1;
+        const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
+        if (part === 1 && !climbing) state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back });
+        ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
+        drawCasteller(0, 0, fi, isEnx, isEnx && !climbing, 1, climbing, part, { back: c.back, crouch: isAcot, legsApart: isEnx });
         ctx.restore();
       }
     };
@@ -569,15 +582,16 @@
     const p = state.climbProg;
     const bob = Math.sin(p * 6 * Math.PI * 2) * levelH * 0.04;
 
-    // Climbing floor (up OR down) drawn BEHIND → climbs the backs of the others.
+    // Climbing floor (up OR down): travels between the pinya and its standing place.
     if (state.climbing && state.placed < F) {
-      const curLevel = state.goingUp ? state.placed * p : state.placed * (1 - p);
-      drawFloor(curLevel, state.placed, bob, true, 0);
+      const fi = state.placed, yStand = fyOf(fi);
+      const yc = state.goingUp ? baseY + (yStand - baseY) * p : yStand + (baseY - yStand) * p;
+      drawFloor(yc + bob, fi, true, 0);
     }
 
     // Standing floors: all bodies first, then all heads on top so legs never cover a face.
-    for (let i = 0; i < state.placed; i++) drawFloor(i, i, 0, false, 1);
-    for (let i = 0; i < state.placed; i++) drawFloor(i, i, 0, false, 2);
+    for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i), i, false, 1);
+    for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i), i, false, 2);
 
     // Pinya drawn last (in front) so it hides the bottom feet.
     drawPinya(cxBase, groundY, pinyaR);
@@ -602,15 +616,17 @@
   // A casteller drawn with VOLUME. Origin is at the FEET (which rest on the
   // shoulders of the one below). The head pokes up between the legs of the
   // casteller above; each one reaches up and grips the calves of the one above.
-  function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part) {
+  function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
     part = part || 0; // 0=all, 1=body only, 2=head only
+    opts = opts || {};
+    const back = !!opts.back, crouch = !!opts.crouch, legsApart = !!opts.legsApart;
     const u = levelH;
-    const L = u * 0.55, T = u * 0.45;       // leg + torso = u (shoulder height)
+    const L = u * (crouch ? 0.26 : 0.55), T = u * (crouch ? 0.42 : 0.45); // leg + torso
     const breath = Math.sin(ANIM * 1.8 + idx * 0.9) * u * 0.012; // subtle breathing
     const hipY = -L, shoY = -(L + T) - breath;
     const sw = u * (isTop ? 0.155 : 0.185); // half shoulder width (top is slimmer)
     const hw = u * 0.1;                     // half hip
-    const fs = u * 0.185;                   // feet on the shoulders below (wide enough for the head to show)
+    const fs = u * (legsApart ? 0.32 : (crouch ? 0.28 : 0.185)); // feet spread
     const R = u * 0.135;                    // head radius
     const headY = shoY - R * 1.02;
     const OUT = "#202a31";
@@ -674,10 +690,13 @@
       ctx.beginPath(); ctx.moveTo(-hw, hipY + u * 0.04); ctx.lineTo(hw, hipY + u * 0.04); ctx.stroke();
 
       // --- arms ---
-      if (aleta) {
+      if (crouch) {
+        arm(-sw * 0.7, shoY + u * 0.06, -fs * 0.9, hipY - u * 0.02, -fs * 0.85, hipY + u * 0.08);
+        arm(sw * 0.7, shoY + u * 0.06, fs * 0.9, hipY - u * 0.02, fs * 0.85, hipY + u * 0.08);
+      } else if (aleta) {
         arm(sw * 0.7, shoY + u * 0.05, sw * 1.1, shoY - u * 0.12, sw * 1.32, shoY - u * 0.56);
         arm(-sw * 0.7, shoY + u * 0.05, -sw * 1.05, hipY - u * 0.08, -hw * 1.15, hipY + u * 0.02);
-      } else if (climbing) {
+      } else if (climbing || back) {
         arm(-sw * 0.6, shoY + u * 0.05, -sw * 0.5, shoY - u * 0.2, -u * 0.07, shoY - u * 0.46);
         arm(sw * 0.6, shoY + u * 0.05, sw * 0.5, shoY - u * 0.2, u * 0.07, shoY - u * 0.46);
       } else {
@@ -699,16 +718,24 @@
       ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.95);
       ctx.fillStyle = darken(COLLA.shirt, 0.78); ctx.fillRect(-R, headY - R * 0.12, R * 2, R * 0.06);
       ctx.restore();
-      // mocador knot on the side
-      ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.arc(R * 0.86, headY - R * 0.25, R * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      // eyes, nose, mouth
-      ctx.fillStyle = "#2a2018";
-      ctx.beginPath(); ctx.arc(-R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "rgba(120,75,55,.55)"; ctx.lineWidth = 1.1;
-      ctx.beginPath(); ctx.moveTo(0, headY + R * 0.2); ctx.lineTo(-R * 0.06, headY + R * 0.42); ctx.stroke();
-      ctx.beginPath(); ctx.arc(0, headY + R * 0.5, R * 0.24, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+      if (back) {
+        // seen from behind: mocador knot at the nape, hair, NO face
+        ctx.fillStyle = "#33271c"; ctx.beginPath(); ctx.ellipse(0, headY + R * 0.15, R * 0.7, R * 0.78, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.8);
+        ctx.fillStyle = darken(COLLA.shirt, 0.7); ctx.beginPath(); ctx.arc(0, headY - R * 0.1, R * 0.22, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = COLLA.skin; ctx.beginPath(); ctx.arc(0, headY + R * 0.7, R * 0.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.fill();
+      } else {
+        // mocador knot on the side
+        ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.arc(R * 0.86, headY - R * 0.25, R * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // eyes, nose, mouth
+        ctx.fillStyle = "#2a2018";
+        ctx.beginPath(); ctx.arc(-R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(120,75,55,.55)"; ctx.lineWidth = 1.1;
+        ctx.beginPath(); ctx.moveTo(0, headY + R * 0.2); ctx.lineTo(-R * 0.06, headY + R * 0.42); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, headY + R * 0.5, R * 0.24, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+      }
     }
 
     ctx.restore();
