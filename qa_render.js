@@ -227,7 +227,7 @@ function render(placed, climbing, goingUp, prog, file) {
   ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
   const groundY = H * 0.84;
   ctx.fillStyle = "#d8cfb8"; ctx.fillRect(0, groundY + 4, W, H);
-  levelH = Math.min(48, (groundY - H * 0.12) / N);
+  levelH = Math.min(48, (groundY - H * 0.12) / (N + 1));
   const pinyaTop = groundY - 40;
   const baseY = pinyaTop + levelH * 0.06;
   const cxBase = W / 2;

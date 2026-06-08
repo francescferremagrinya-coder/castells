@@ -171,17 +171,20 @@
   }
   function setShirt(hex) { COLLA.shirt = hex; COLLA.shirtDark = darken(hex, 0.8); }
 
-  // ---- Castells (challenges) — a progression that unlocks as you descarregues ----
+  // ---- Castells. The pinya counts as the 1st pis, so a "Pilar de X" has the
+  // pinya + (X-1) castellers in the trunk. `trunk` = people stacked above the pinya.
   const CASTELLS = [
-    { id: "pilar5", name: "Pilar de 5", meta: "5 pisos · per començar", levels: 5, diff: 0.82, pts: { desc: 60, carr: 35 } },
-    { id: "pilar6", name: "Pilar de 6", meta: "6 pisos", levels: 6, diff: 1.0, pts: { desc: 100, carr: 60 } },
-    { id: "pilar7", name: "Pilar de 7", meta: "7 pisos · es mou més", levels: 7, diff: 1.18, pts: { desc: 170, carr: 100 } },
-    { id: "pilar8", name: "Pilar de 8", meta: "8 pisos · per a experts", levels: 8, diff: 1.4, pts: { desc: 260, carr: 150 } },
+    { id: "p4", num: 4, trunk: 3, cost: 0, diff: 0.82, pts: { desc: 50, carr: 30 } },
+    { id: "p5", num: 5, trunk: 4, cost: 45, diff: 0.95, pts: { desc: 95, carr: 55 } },
+    { id: "p6", num: 6, trunk: 5, cost: 100, diff: 1.1, pts: { desc: 160, carr: 95 } },
+    { id: "p7", num: 7, trunk: 6, cost: 180, diff: 1.3, pts: { desc: 250, carr: 150 } },
+    { id: "p8", num: 8, trunk: 7, cost: 300, diff: 1.52, pts: { desc: 380, carr: 220 } },
   ];
+  const castName = (c) => "Pilar de " + c.num;
 
   // ---- Save / load ----
-  const SAVE_KEY = "castells_save_v2";
-  let save = { colla: null, best: {}, done: {} };
+  const SAVE_KEY = "castells_save_v3";
+  let save = { colla: null, best: {}, done: {}, castellers: 25 };
   function loadSave() {
     try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
   }
@@ -254,7 +257,13 @@
       re, mi, re, mi, solH, solH, solH, solH,
       mi, fa, solH, laH, solH, 0, re, mi, re, mi, solH, solH, solH, 0,
     ];
-    const tunes = { toc: TOC, carregada: CARREGADA };
+    // "Sortida": the descending phrase that accompanies the descàrrega.
+    const SORTIDA = [
+      solH, fa, mi, re, doN, re, doN, si,
+      la, si, doN, re, mi, re, doN, si,
+      la, sol, la, si, doN, re, doN, 0,
+    ];
+    const tunes = { toc: TOC, carregada: CARREGADA, sortida: SORTIDA };
     function scheduleStep(s, t) {
       // tabal: a marching pulse, fuller during the carregada
       if (s % 4 === 0) tabal(t, s % 8 === 0);
@@ -307,7 +316,7 @@
   let state = null;
 
   function newGame() {
-    N = curCastell.levels;
+    N = curCastell.trunk;
     state = {
       phase: PHASE.READY,
       placed: 1,
@@ -322,6 +331,11 @@
       time: 0,
       shake: 0,
       result: null,
+      assaig: false,
+      pos: [],          // recorded world positions of standing castellers (for the fall)
+      debris: null,     // tumbling castellers when it falls
+      fallT: 0,
+      geo: { levelH: 46, groundY: 0, cxBase: 0, baseY: 0 },
     };
   }
 
@@ -361,7 +375,8 @@
     if (!state) return;
     state.time += dt;
     state.shake *= Math.pow(0.001, dt);
-    if (state.phase === PHASE.READY || state.phase === PHASE.WIN || state.phase === PHASE.FALL) return;
+    if (state.phase === PHASE.FALL) { updateDebris(dt); return; }
+    if (state.phase === PHASE.READY || state.phase === PHASE.WIN) return;
 
     const diff = difficulty();
 
@@ -398,7 +413,7 @@
       }
     } else if (state.phase === PHASE.ALETA) {
       state.aletaT += dt;
-      if (state.aletaT > 1.5) { state.phase = PHASE.DOWN; state.goingUp = false; state.settle = 0.4; Sound.setTune("toc"); }
+      if (state.aletaT > 1.5) { state.phase = PHASE.DOWN; state.goingUp = false; state.settle = 0.4; Sound.setTune("sortida"); }
     } else if (state.phase === PHASE.DOWN) {
       if (state.climbing) {
         // the detached casteller clambers all the way down to the pinya
@@ -419,7 +434,38 @@
     updateUI();
   }
 
-  function fall(reason) { state.phase = PHASE.FALL; state.result = { ok: false, reason }; setTimeout(showEnd, 800); }
+  function fall(reason) {
+    state.phase = PHASE.FALL;
+    state.result = { ok: false, reason };
+    state.fallT = 0;
+    // seed the tumbling castellers from their last standing positions; they fall
+    // toward the side it was leaning and pile onto the pinya
+    const side = Math.sign(state.lean) || 1;
+    state.debris = (state.pos || []).map((p) => ({
+      x: p.x, y: p.y, rot: p.rot, idx: p.idx, isTop: p.isTop,
+      vx: side * (40 + Math.random() * 120) + (Math.random() - 0.5) * 60,
+      vy: -30 - Math.random() * 70,
+      vr: (Math.random() - 0.5) * 7,
+      rest: false,
+    }));
+    Sound.setTune("toc");
+    setTimeout(showEnd, 1700);
+  }
+  function updateDebris(dt) {
+    if (!state.debris) return;
+    state.fallT += dt;
+    const floorY = state.geo.groundY - 4;
+    for (const d of state.debris) {
+      if (d.rest) continue;
+      d.vy += 1100 * dt;
+      d.x += d.vx * dt; d.y += d.vy * dt; d.rot += d.vr * dt;
+      const land = floorY - (d.idx % 3) * 4; // pile slightly
+      if (d.y >= land) {
+        d.y = land; d.vy *= -0.22; d.vx *= 0.5; d.vr *= 0.4;
+        if (Math.abs(d.vy) < 40) { d.vy = 0; d.vr = 0; d.rest = true; d.rot = Math.sign(d.rot || 1) * Math.PI * 0.5; }
+      }
+    }
+  }
   function win() { state.phase = PHASE.WIN; state.result = { ok: true }; Sound.setTune("carregada"); setTimeout(showEnd, 700); }
 
   // ---- UI ----
@@ -467,16 +513,30 @@
 
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
     cxBase = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
-    levelH = Math.min(48, (groundY - H * 0.12) / N);
+    levelH = Math.min(48, (groundY - H * 0.12) / (N + 1));
     const pinyaTop = groundY - 40;
     baseY = pinyaTop + levelH * 0.06;   // the segon's FEET rest on the pinya
     const pinyaR = Math.min(W * 0.44, 230);
+    state.geo = { levelH: levelH, groundY: groundY, cxBase: cxBase, baseY: baseY };
+
+    // --- the castell has fallen: castellers tumble onto the pinya ---
+    if (state.phase === PHASE.FALL && state.debris) {
+      drawPinya(cxBase, groundY, pinyaR);
+      const ds = state.debris.slice().sort((a, b) => a.y - b.y);
+      for (const d of ds) {
+        ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot);
+        drawCasteller(0, 0, d.idx, d.isTop, false, 1, false, 0);
+        ctx.restore();
+      }
+      return;
+    }
 
     // A real pilar barely tilts — it FLEXES: the base stays firm and the sway
     // accumulates upwards, so the enxaneta moves the most.
     const topSway = state.lean * levelH * 1.0;
-    const bendX = (lvl) => topSway * Math.pow(lvl / (N - 1), 1.6);
-    const bendA = (lvl) => state.lean * 0.12 * (lvl / (N - 1));
+    const denom = Math.max(1, N - 1);
+    const bendX = (lvl) => topSway * Math.pow(lvl / denom, 1.6);
+    const bendA = (lvl) => state.lean * 0.12 * (lvl / denom);
     const drawAt = (lvl, yOff, idx, isTop, aleta, climbing, part) => {
       ctx.save();
       ctx.translate(cxBase + bendX(lvl), baseY - levelH * lvl + (yOff || 0));
@@ -484,6 +544,10 @@
       drawCasteller(0, 0, idx, isTop, aleta, 1, climbing, part);
       ctx.restore();
     };
+
+    // record standing positions (used to seed the fall)
+    state.pos = [];
+    for (let i = 0; i < state.placed; i++) state.pos.push({ x: cxBase + bendX(i), y: baseY - levelH * i, rot: bendA(i), idx: i, isTop: i === N - 1 });
 
     const p = state.climbProg;
     const bob = Math.sin(p * N * Math.PI * 2) * levelH * 0.04;
@@ -500,8 +564,6 @@
 
     // Pinya drawn last (in front) so it hides the segon's feet → he sits in the pinya.
     drawPinya(cxBase, groundY, pinyaR);
-
-    if (state.phase === PHASE.FALL) { ctx.fillStyle = "rgba(201,75,46,.10)"; ctx.fillRect(0, 0, W, H); }
   }
 
   function smooth(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
@@ -749,18 +811,30 @@
     applyPreviewColor();
     // (Re)build castell list.
     const list = document.getElementById("castellList");
+    document.getElementById("collaNameLbl").textContent = COLLA.name + "  ·  🧍 " + save.castellers + " castellers";
     list.innerHTML = "";
-    CASTELLS.forEach((c, i) => {
-      const locked = i > 0 && !save.done[CASTELLS[i - 1].id];
+
+    // ASSAIG — practice freely and earn castellers (no cost)
+    const assaig = document.createElement("div");
+    assaig.className = "castell play assaig-row";
+    assaig.innerHTML =
+      '<div><div class="c-name">🛠️ Assaig</div>' +
+      '<div class="c-meta">Practica i guanya castellers</div></div>' +
+      '<div class="c-best">Entrena</div>';
+    assaig.addEventListener("click", () => begin(CASTELLS[0], true));
+    list.appendChild(assaig);
+
+    CASTELLS.forEach((c) => {
+      const locked = save.castellers < c.cost;
       const row = document.createElement("div");
       row.className = "castell " + (locked ? "lock" : "play");
       const best = save.best[c.id];
-      const meta = locked ? "Descarrega el " + CASTELLS[i - 1].name + " per desbloquejar" : c.meta;
+      const meta = locked ? "Necessites 🧍 " + c.cost + " castellers" : (c.trunk + 1) + " pisos · pinya + " + c.trunk + " de tronc";
       row.innerHTML =
-        '<div><div class="c-name">' + (locked ? "🔒 " : (save.done[c.id] ? "✓ " : "")) + c.name + '</div>' +
+        '<div><div class="c-name">' + (locked ? "🔒 " : (save.done[c.id] ? "✓ " : "")) + castName(c) + '</div>' +
         '<div class="c-meta">' + meta + '</div></div>' +
-        '<div class="c-best">' + (locked ? "" : (best ? best + " pts" : "Juga")) + '</div>';
-      if (!locked) row.addEventListener("click", () => begin(c));
+        '<div class="c-best">' + (locked ? "🧍 " + c.cost : (best ? best + " pts" : "Juga")) + '</div>';
+      if (!locked) row.addEventListener("click", () => begin(c, false));
       list.appendChild(row);
     });
     uiEl.style.display = "none";
@@ -769,9 +843,9 @@
     endScreen.classList.add("hidden");
   }
 
-  function begin(castell) {
+  function begin(castell, assaig) {
     curCastell = castell || curCastell;
-    newGame(); state.phase = PHASE.UP;
+    newGame(); state.phase = PHASE.UP; state.assaig = !!assaig;
     Sound.setTune("toc"); Sound.ensure();
     screen = "game";
     uiEl.style.display = "";
@@ -785,25 +859,28 @@
     const emoji = document.getElementById("endEmoji");
     const title = document.getElementById("endTitle");
     const sub = document.getElementById("endSub");
-    let pts = 0;
+    let pts = 0, earned = 0;
     if (r.ok) {
       pts = curCastell.pts.desc;
-      const wasNew = !save.done[curCastell.id];
-      save.done[curCastell.id] = true;
+      earned = curCastell.trunk * 10;
+      const wasNew = !state.assaig && !save.done[curCastell.id];
       const idx = CASTELLS.indexOf(curCastell);
       const next = CASTELLS[idx + 1];
+      if (!state.assaig) save.done[curCastell.id] = true;
       emoji.textContent = "🎉"; title.textContent = "Descarregat!";
-      sub.textContent = "Pilar complet, carregat i descarregat. +" + pts + " punts!" +
-        (wasNew && next ? " Has desbloquejat el " + next.name + "!" : "");
+      sub.textContent = "Carregat i descarregat. +" + pts + " punts · +🧍 " + earned + " castellers." +
+        (wasNew && next && save.castellers + earned >= next.cost ? " Ja pots provar el " + castName(next) + "!" : "");
     } else if (state.placed >= N) {
-      pts = curCastell.pts.carr;
+      pts = curCastell.pts.carr; earned = curCastell.trunk * 5;
       emoji.textContent = "😬"; title.textContent = "Carregat… però llenya!";
-      sub.textContent = r.reason + " Coronat però no descarregat. +" + pts + " punts.";
+      sub.textContent = r.reason + " Coronat però no descarregat. +" + pts + " punts · +🧍 " + earned + ".";
     } else {
+      earned = state.placed * 3;
       emoji.textContent = "💥"; title.textContent = "Llenya!";
-      sub.textContent = r.reason + " Cap punt aquesta vegada.";
+      sub.textContent = r.reason + " +🧍 " + earned + " castellers per l'esforç.";
     }
-    if (pts > (save.best[curCastell.id] || 0)) save.best[curCastell.id] = pts;
+    if (!state.assaig && pts > (save.best[curCastell.id] || 0)) save.best[curCastell.id] = pts;
+    save.castellers += earned;
     persist();
     uiEl.style.display = "none";
     endScreen.classList.remove("hidden");
