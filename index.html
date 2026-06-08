@@ -171,16 +171,17 @@
   }
   function setShirt(hex) { COLLA.shirt = hex; COLLA.shirtDark = darken(hex, 0.8); }
 
-  // ---- Castells (challenges) ----
+  // ---- Castells (challenges) — a progression that unlocks as you descarregues ----
   const CASTELLS = [
-    { id: "pilar6", name: "Pilar de 6", meta: "6 pisos · l'inici", levels: 6, locked: false, pts: { desc: 100, carr: 60 } },
-    { id: "pilar7", name: "Pilar de 7", meta: "Properament", levels: 7, locked: true },
-    { id: "3de7", name: "Tres de set", meta: "Properament", levels: 7, locked: true },
+    { id: "pilar5", name: "Pilar de 5", meta: "5 pisos · per començar", levels: 5, diff: 0.82, pts: { desc: 60, carr: 35 } },
+    { id: "pilar6", name: "Pilar de 6", meta: "6 pisos", levels: 6, diff: 1.0, pts: { desc: 100, carr: 60 } },
+    { id: "pilar7", name: "Pilar de 7", meta: "7 pisos · es mou més", levels: 7, diff: 1.18, pts: { desc: 170, carr: 100 } },
+    { id: "pilar8", name: "Pilar de 8", meta: "8 pisos · per a experts", levels: 8, diff: 1.4, pts: { desc: 260, carr: 150 } },
   ];
 
   // ---- Save / load ----
-  const SAVE_KEY = "castells_save_v1";
-  let save = { colla: null, best: {} };
+  const SAVE_KEY = "castells_save_v2";
+  let save = { colla: null, best: {}, done: {} };
   function loadSave() {
     try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
   }
@@ -194,8 +195,8 @@
   // ---- Sound: synthesised gralla + tabal + crowd (Web Audio API, no files) ----
   const Sound = (() => {
     let ac = null, master = null, schedTimer = null, running = false, on = true;
-    let step = 0, nextTime = 0;
-    const BPM = 112, sixteenth = 60 / BPM / 4;
+    let step = 0, nextTime = 0, eighth = 0, tune = "toc";
+    const BPM = 120, sixteenth = 60 / BPM / 4;
 
     function noiseBuffer(sec) {
       const len = Math.floor(ac.sampleRate * sec);
@@ -240,17 +241,38 @@
       o.connect(bp); bp.connect(g); g.connect(master);
       o.start(t); vib.start(t); o.stop(t + dur + 0.02); vib.stop(t + dur + 0.02);
     }
-    const D = 587.33, E = 659.25, Fs = 739.99, G = 783.99, A = 880, B = 987.77;
-    const mel = [A, Fs, D, Fs, A, B, A, 0, G, E, Fs, G, A, Fs, D, 0]; // 16 eighths (2 bars)
+    // Catalan solfège → Hz (gralla register). The toc de castells is in mixolydian.
+    const sol = 392.00, la = 440.00, si = 493.88, doN = 523.25, re = 587.33, mi = 659.25, fa = 698.46, solH = 783.99, laH = 880.00;
+    // Main "toc de castells" phrase that accompanies the raising of the tower.
+    const TOC = [
+      solH, solH, solH, re, mi, fa, mi, re, doN, re,
+      doN, si, re, solH, re, si, re, doN, si, doN,
+      mi, re, mi, doN, re, si, 0, 0,
+    ];
+    // "Carregada": the aleta — a trill on re/mi and a held high sol, festive.
+    const CARREGADA = [
+      re, mi, re, mi, solH, solH, solH, solH,
+      mi, fa, solH, laH, solH, 0, re, mi, re, mi, solH, solH, solH, 0,
+    ];
+    const tunes = { toc: TOC, carregada: CARREGADA };
     function scheduleStep(s, t) {
+      // tabal: a marching pulse, fuller during the carregada
       if (s % 4 === 0) tabal(t, s % 8 === 0);
-      if (s === 14) tabal(t, false);
-      if (s % 2 === 0) { const f = mel[(s / 2) % mel.length]; if (f) gralla(t, f, sixteenth * 2 * 0.9); }
+      if (s === 10 || s === 14) tabal(t, false);
+      if (tune === "carregada" && s % 2 === 0) tabal(t, s % 4 === 0);
+      // gralla melody on eighth notes from the current tune
+      if (s % 2 === 0) {
+        const mel = tunes[tune];
+        const f = mel[eighth % mel.length];
+        if (f) gralla(t, f, sixteenth * 2 * 0.92);
+        eighth++;
+      }
     }
     function scheduler() {
       while (nextTime < ac.currentTime + 0.2) { scheduleStep(step % 16, nextTime); nextTime += sixteenth; step++; }
       schedTimer = setTimeout(scheduler, 50);
     }
+    function setTune(name) { if (tunes[name] && name !== tune) { tune = name; eighth = 0; } }
     function ensure() {
       if (!on) return;
       if (!ac) {
@@ -270,16 +292,22 @@
       if (v) { ensure(); }
       else if (ac) { master.gain.cancelScheduledValues(ac.currentTime); master.gain.linearRampToValueAtTime(0, ac.currentTime + 0.3); clearTimeout(schedTimer); running = false; }
     }
-    return { ensure, setOn, isOn: () => on };
+    return { ensure, setOn, isOn: () => on, setTune };
   })();
 
-  const TRUNK = ["Segon", "Terç", "Quart", "Quint", "Acotxador", "Enxaneta"];
-  const N = TRUNK.length;
+  const ORD = ["Segon", "Terç", "Quart", "Quint", "Sisè", "Setè", "Vuitè", "Novè"];
+  function levelName(i) {
+    if (i === N - 1) return "Enxaneta";
+    if (i === N - 2) return "Acotxador";
+    return ORD[i] || ("Pis " + (i + 1));
+  }
+  let N = 6; // levels of the current castell (set in newGame)
   const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5 };
 
   let state = null;
 
   function newGame() {
+    N = curCastell.levels;
     state = {
       phase: PHASE.READY,
       placed: 1,
@@ -324,7 +352,8 @@
     const heightFactor = 0.55 + state.placed * 0.26;
     const climbFactor = state.climbing ? 1.45 : 1;
     const fatigueFactor = 1 + (1 - state.fatigue) * 0.6;
-    return heightFactor * climbFactor * fatigueFactor;
+    const castFactor = curCastell.diff || 1;
+    return heightFactor * climbFactor * fatigueFactor * castFactor;
   }
 
   let noiseT = 0;
@@ -360,7 +389,7 @@
         if (state.climbProg >= 1) {
           state.climbing = false; state.climbProg = 0; state.placed++;
           state.shake = Math.min(1, state.shake + 0.3);
-          if (state.placed >= N) { state.phase = PHASE.ALETA; state.aletaT = 0; }
+          if (state.placed >= N) { state.phase = PHASE.ALETA; state.aletaT = 0; Sound.setTune("carregada"); }
           else state.settle = 0.45;
         }
       } else {
@@ -369,7 +398,7 @@
       }
     } else if (state.phase === PHASE.ALETA) {
       state.aletaT += dt;
-      if (state.aletaT > 1.5) { state.phase = PHASE.DOWN; state.goingUp = false; state.settle = 0.4; }
+      if (state.aletaT > 1.5) { state.phase = PHASE.DOWN; state.goingUp = false; state.settle = 0.4; Sound.setTune("toc"); }
     } else if (state.phase === PHASE.DOWN) {
       if (state.climbing) {
         // the detached casteller clambers all the way down to the pinya
@@ -391,7 +420,7 @@
   }
 
   function fall(reason) { state.phase = PHASE.FALL; state.result = { ok: false, reason }; setTimeout(showEnd, 800); }
-  function win() { state.phase = PHASE.WIN; state.result = { ok: true }; setTimeout(showEnd, 700); }
+  function win() { state.phase = PHASE.WIN; state.result = { ok: true }; Sound.setTune("carregada"); setTimeout(showEnd, 700); }
 
   // ---- UI ----
   const balMark = document.getElementById("balMark");
@@ -403,7 +432,7 @@
     balMark.style.background = d > 0.66 ? "#c94b2e" : (d > 0.4 ? "#e6a23c" : "#1c1c1c");
     fatFill.style.width = (state.fatigue * 100) + "%";
     let t = "";
-    if (state.phase === PHASE.UP) t = state.climbing ? "Puja el " + TRUNK[state.placed] + "…" : "Aguanta!";
+    if (state.phase === PHASE.UP) t = state.climbing ? "Puja el " + levelName(state.placed) + "…" : "Aguanta!";
     else if (state.phase === PHASE.ALETA) t = "L'enxaneta fa l'aleta! 🙌";
     else if (state.phase === PHASE.DOWN) t = "Descarregant… aguanta!";
     statusEl.textContent = t;
@@ -448,11 +477,11 @@
     const topSway = state.lean * levelH * 1.0;
     const bendX = (lvl) => topSway * Math.pow(lvl / (N - 1), 1.6);
     const bendA = (lvl) => state.lean * 0.12 * (lvl / (N - 1));
-    const drawAt = (lvl, yOff, idx, isTop, aleta, climbing) => {
+    const drawAt = (lvl, yOff, idx, isTop, aleta, climbing, part) => {
       ctx.save();
       ctx.translate(cxBase + bendX(lvl), baseY - levelH * lvl + (yOff || 0));
       ctx.rotate(bendA(lvl));
-      drawCasteller(0, 0, idx, isTop, aleta, 1, climbing);
+      drawCasteller(0, 0, idx, isTop, aleta, 1, climbing, part);
       ctx.restore();
     };
 
@@ -462,14 +491,12 @@
     // Climber (up OR down) is drawn BEHIND the trunk → climbs the backs of the others.
     if (state.climbing) {
       const curLevel = state.goingUp ? state.placed * p : state.placed * (1 - p);
-      drawAt(curLevel, bob, state.placed, state.placed === N - 1, false, true);
+      drawAt(curLevel, bob, state.placed, state.placed === N - 1, false, true, 0);
     }
 
-    // The standing trunk (bottom → top).
-    for (let i = 0; i < state.placed; i++) {
-      const isEnx = i === N - 1;
-      drawAt(i, 0, i, isEnx, isEnx, false); // enxaneta (top) raises a hand
-    }
+    // The standing trunk: bodies first, then all heads on top so legs never cover a face.
+    for (let i = 0; i < state.placed; i++) drawAt(i, 0, i, i === N - 1, i === N - 1, false, 1);
+    for (let i = 0; i < state.placed; i++) drawAt(i, 0, i, i === N - 1, i === N - 1, false, 2);
 
     // Pinya drawn last (in front) so it hides the segon's feet → he sits in the pinya.
     drawPinya(cxBase, groundY, pinyaR);
@@ -496,25 +523,22 @@
   // A casteller drawn with VOLUME. Origin is at the FEET (which rest on the
   // shoulders of the one below). The head pokes up between the legs of the
   // casteller above; each one reaches up and grips the calves of the one above.
-  function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing) {
+  function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part) {
+    part = part || 0; // 0=all, 1=body only, 2=head only
     const u = levelH;
     const L = u * 0.55, T = u * 0.45;       // leg + torso = u (shoulder height)
     const breath = Math.sin(ANIM * 1.8 + idx * 0.9) * u * 0.012; // subtle breathing
     const hipY = -L, shoY = -(L + T) - breath;
     const sw = u * (isTop ? 0.155 : 0.185); // half shoulder width (top is slimmer)
     const hw = u * 0.1;                     // half hip
-    const fs = u * 0.165;                   // half foot spread
-    const R = u * 0.15;                     // head radius
-    const headY = shoY - R * 1.1;
+    const fs = u * 0.185;                   // feet on the shoulders below (wide enough for the head to show)
+    const R = u * 0.135;                    // head radius
+    const headY = shoY - R * 1.02;
     const OUT = "#202a31";
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(x, y);
     ctx.lineJoin = "round"; ctx.lineCap = "round";
-
-    // soft contact shadow where the feet rest on the shoulders below
-    ctx.fillStyle = "rgba(20,28,34,.18)";
-    ctx.beginPath(); ctx.ellipse(0, u * 0.04, u * 0.32, u * 0.07, 0, 0, Math.PI * 2); ctx.fill();
 
     const hand = (hx, hy) => {
       ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
@@ -526,80 +550,87 @@
       hand(hx, hy);
     };
 
-    // --- legs (trousers) + shoes ---
-    quadLimb(-fs, 0, u * 0.085, -hw, hipY, u * 0.092, COLLA.pants, OUT);
-    quadLimb(fs, 0, u * 0.085, hw, hipY, u * 0.092, COLLA.pants, OUT);
-    ctx.strokeStyle = "rgba(20,28,34,.12)"; ctx.lineWidth = u * 0.05;
-    ctx.beginPath(); ctx.moveTo(-fs * 0.5, hipY + u * 0.05); ctx.lineTo(-hw * 0.2, -u * 0.02); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(fs * 0.5, hipY + u * 0.05); ctx.lineTo(hw * 0.2, -u * 0.02); ctx.stroke();
-    ctx.fillStyle = "#39302a"; ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.ellipse(-fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (part !== 2) {
+      // soft contact shadow where the feet rest on the shoulders below
+      ctx.fillStyle = "rgba(20,28,34,.18)";
+      ctx.beginPath(); ctx.ellipse(0, u * 0.04, u * 0.32, u * 0.07, 0, 0, Math.PI * 2); ctx.fill();
 
-    // --- torso (shirt) with volume ---
-    const torsoPath = () => {
-      ctx.beginPath();
-      ctx.moveTo(-hw, hipY + u * 0.04);
-      ctx.lineTo(-sw, shoY + u * 0.06);
-      ctx.quadraticCurveTo(-sw, shoY - u * 0.05, -sw * 0.5, shoY - u * 0.05);
-      ctx.lineTo(sw * 0.5, shoY - u * 0.05);
-      ctx.quadraticCurveTo(sw, shoY - u * 0.05, sw, shoY + u * 0.06);
-      ctx.lineTo(hw, hipY + u * 0.04);
-      ctx.closePath();
-    };
-    const g = ctx.createLinearGradient(-sw, 0, sw, 0);
-    g.addColorStop(0, COLLA.shirtDark); g.addColorStop(0.4, COLLA.shirt); g.addColorStop(0.62, COLLA.shirt); g.addColorStop(1, COLLA.shirtDark);
-    ctx.fillStyle = g; ctx.strokeStyle = OUT; ctx.lineWidth = 1.6;
-    torsoPath(); ctx.fill(); ctx.stroke();
-    ctx.save(); torsoPath(); ctx.clip();
-    const gv = ctx.createLinearGradient(0, shoY, 0, hipY);
-    gv.addColorStop(0, "rgba(255,255,255,.16)"); gv.addColorStop(0.5, "rgba(255,255,255,0)"); gv.addColorStop(1, "rgba(0,0,0,.16)");
-    ctx.fillStyle = gv; torsoPath(); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,.1)";
-    ctx.beginPath(); ctx.ellipse(-sw * 0.3, shoY + T * 0.35, sw * 0.35, T * 0.4, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
+      // --- legs (trousers) + shoes ---
+      quadLimb(-fs, 0, u * 0.085, -hw, hipY, u * 0.092, COLLA.pants, OUT);
+      quadLimb(fs, 0, u * 0.085, hw, hipY, u * 0.092, COLLA.pants, OUT);
+      ctx.strokeStyle = "rgba(20,28,34,.12)"; ctx.lineWidth = u * 0.05;
+      ctx.beginPath(); ctx.moveTo(-fs * 0.5, hipY + u * 0.05); ctx.lineTo(-hw * 0.2, -u * 0.02); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(fs * 0.5, hipY + u * 0.05); ctx.lineTo(hw * 0.2, -u * 0.02); ctx.stroke();
+      ctx.fillStyle = "#39302a"; ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(-fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-    // --- faixa ---
-    ctx.fillStyle = COLLA.faixa;
-    ctx.beginPath(); roundRect(-hw * 1.25, hipY - u * 0.04, hw * 2.5, u * 0.18, u * 0.03); ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(-hw, hipY + u * 0.04); ctx.lineTo(hw, hipY + u * 0.04); ctx.stroke();
+      // --- torso (shirt) with volume ---
+      const torsoPath = () => {
+        ctx.beginPath();
+        ctx.moveTo(-hw, hipY + u * 0.04);
+        ctx.lineTo(-sw, shoY + u * 0.06);
+        ctx.quadraticCurveTo(-sw, shoY - u * 0.05, -sw * 0.5, shoY - u * 0.05);
+        ctx.lineTo(sw * 0.5, shoY - u * 0.05);
+        ctx.quadraticCurveTo(sw, shoY - u * 0.05, sw, shoY + u * 0.06);
+        ctx.lineTo(hw, hipY + u * 0.04);
+        ctx.closePath();
+      };
+      const g = ctx.createLinearGradient(-sw, 0, sw, 0);
+      g.addColorStop(0, COLLA.shirtDark); g.addColorStop(0.4, COLLA.shirt); g.addColorStop(0.62, COLLA.shirt); g.addColorStop(1, COLLA.shirtDark);
+      ctx.fillStyle = g; ctx.strokeStyle = OUT; ctx.lineWidth = 1.6;
+      torsoPath(); ctx.fill(); ctx.stroke();
+      ctx.save(); torsoPath(); ctx.clip();
+      const gv = ctx.createLinearGradient(0, shoY, 0, hipY);
+      gv.addColorStop(0, "rgba(255,255,255,.16)"); gv.addColorStop(0.5, "rgba(255,255,255,0)"); gv.addColorStop(1, "rgba(0,0,0,.16)");
+      ctx.fillStyle = gv; torsoPath(); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.1)";
+      ctx.beginPath(); ctx.ellipse(-sw * 0.3, shoY + T * 0.35, sw * 0.35, T * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
 
-    // --- arms ---
-    if (aleta) {
-      arm(sw * 0.7, shoY + u * 0.05, sw * 1.1, shoY - u * 0.12, sw * 1.32, shoY - u * 0.56);
-      arm(-sw * 0.7, shoY + u * 0.05, -sw * 1.05, hipY - u * 0.08, -hw * 1.15, hipY + u * 0.02);
-    } else if (climbing) {
-      arm(-sw * 0.6, shoY + u * 0.05, -sw * 0.5, shoY - u * 0.2, -u * 0.07, shoY - u * 0.46);
-      arm(sw * 0.6, shoY + u * 0.05, sw * 0.5, shoY - u * 0.2, u * 0.07, shoY - u * 0.46);
-    } else {
-      arm(-sw * 0.75, shoY + u * 0.05, -sw * 1.02, shoY - u * 0.04, -fs * 0.95, shoY - u * 0.22);
-      arm(sw * 0.75, shoY + u * 0.05, sw * 1.02, shoY - u * 0.04, fs * 0.95, shoY - u * 0.22);
+      // --- faixa ---
+      ctx.fillStyle = COLLA.faixa;
+      ctx.beginPath(); roundRect(-hw * 1.25, hipY - u * 0.04, hw * 2.5, u * 0.18, u * 0.03); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-hw, hipY + u * 0.04); ctx.lineTo(hw, hipY + u * 0.04); ctx.stroke();
+
+      // --- arms ---
+      if (aleta) {
+        arm(sw * 0.7, shoY + u * 0.05, sw * 1.1, shoY - u * 0.12, sw * 1.32, shoY - u * 0.56);
+        arm(-sw * 0.7, shoY + u * 0.05, -sw * 1.05, hipY - u * 0.08, -hw * 1.15, hipY + u * 0.02);
+      } else if (climbing) {
+        arm(-sw * 0.6, shoY + u * 0.05, -sw * 0.5, shoY - u * 0.2, -u * 0.07, shoY - u * 0.46);
+        arm(sw * 0.6, shoY + u * 0.05, sw * 0.5, shoY - u * 0.2, u * 0.07, shoY - u * 0.46);
+      } else {
+        arm(-sw * 0.75, shoY + u * 0.05, -sw * 1.02, shoY - u * 0.04, -fs * 0.95, shoY - u * 0.22);
+        arm(sw * 0.75, shoY + u * 0.05, sw * 1.02, shoY - u * 0.04, fs * 0.95, shoY - u * 0.22);
+      }
     }
 
-    // --- neck + head ---
-    ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
-    ctx.beginPath(); roundRect(-u * 0.05, shoY - u * 0.06, u * 0.1, u * 0.1, u * 0.03); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // face shading + hair + mocador (clipped to the head)
-    ctx.save(); ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(R * 0.25, headY - R, R, R * 2);
-    ctx.fillStyle = "#33271c";
-    ctx.beginPath(); ctx.ellipse(-R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.95);
-    ctx.fillStyle = darken(COLLA.shirt, 0.78); ctx.fillRect(-R, headY - R * 0.12, R * 2, R * 0.06);
-    ctx.restore();
-    // mocador knot on the side
-    ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(R * 0.86, headY - R * 0.25, R * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    // eyes, nose, mouth
-    ctx.fillStyle = "#2a2018";
-    ctx.beginPath(); ctx.arc(-R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "rgba(120,75,55,.55)"; ctx.lineWidth = 1.1;
-    ctx.beginPath(); ctx.moveTo(0, headY + R * 0.2); ctx.lineTo(-R * 0.06, headY + R * 0.42); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, headY + R * 0.5, R * 0.24, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+    if (part !== 1) {
+      // --- neck + head (drawn in a later pass so legs never cover the face) ---
+      ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
+      ctx.beginPath(); roundRect(-u * 0.05, shoY - u * 0.06, u * 0.1, u * 0.1, u * 0.03); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.save(); ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(R * 0.25, headY - R, R, R * 2);
+      ctx.fillStyle = "#33271c";
+      ctx.beginPath(); ctx.ellipse(-R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.95);
+      ctx.fillStyle = darken(COLLA.shirt, 0.78); ctx.fillRect(-R, headY - R * 0.12, R * 2, R * 0.06);
+      ctx.restore();
+      // mocador knot on the side
+      ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(R * 0.86, headY - R * 0.25, R * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // eyes, nose, mouth
+      ctx.fillStyle = "#2a2018";
+      ctx.beginPath(); ctx.arc(-R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(120,75,55,.55)"; ctx.lineWidth = 1.1;
+      ctx.beginPath(); ctx.moveTo(0, headY + R * 0.2); ctx.lineTo(-R * 0.06, headY + R * 0.42); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, headY + R * 0.5, R * 0.24, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+    }
 
     ctx.restore();
   }
@@ -719,15 +750,17 @@
     // (Re)build castell list.
     const list = document.getElementById("castellList");
     list.innerHTML = "";
-    CASTELLS.forEach((c) => {
+    CASTELLS.forEach((c, i) => {
+      const locked = i > 0 && !save.done[CASTELLS[i - 1].id];
       const row = document.createElement("div");
-      row.className = "castell " + (c.locked ? "lock" : "play");
+      row.className = "castell " + (locked ? "lock" : "play");
       const best = save.best[c.id];
+      const meta = locked ? "Descarrega el " + CASTELLS[i - 1].name + " per desbloquejar" : c.meta;
       row.innerHTML =
-        '<div><div class="c-name">' + (c.locked ? "🔒 " : "") + c.name + '</div>' +
-        '<div class="c-meta">' + c.meta + '</div></div>' +
-        '<div class="c-best">' + (c.locked ? "" : (best ? best + " pts" : "Juga")) + '</div>';
-      if (!c.locked) row.addEventListener("click", () => begin(c));
+        '<div><div class="c-name">' + (locked ? "🔒 " : (save.done[c.id] ? "✓ " : "")) + c.name + '</div>' +
+        '<div class="c-meta">' + meta + '</div></div>' +
+        '<div class="c-best">' + (locked ? "" : (best ? best + " pts" : "Juga")) + '</div>';
+      if (!locked) row.addEventListener("click", () => begin(c));
       list.appendChild(row);
     });
     uiEl.style.display = "none";
@@ -739,7 +772,7 @@
   function begin(castell) {
     curCastell = castell || curCastell;
     newGame(); state.phase = PHASE.UP;
-    Sound.ensure();
+    Sound.setTune("toc"); Sound.ensure();
     screen = "game";
     uiEl.style.display = "";
     creatorScreen.classList.add("hidden");
@@ -755,8 +788,13 @@
     let pts = 0;
     if (r.ok) {
       pts = curCastell.pts.desc;
+      const wasNew = !save.done[curCastell.id];
+      save.done[curCastell.id] = true;
+      const idx = CASTELLS.indexOf(curCastell);
+      const next = CASTELLS[idx + 1];
       emoji.textContent = "🎉"; title.textContent = "Descarregat!";
-      sub.textContent = "Pilar complet, carregat i descarregat. +" + pts + " punts!";
+      sub.textContent = "Pilar complet, carregat i descarregat. +" + pts + " punts!" +
+        (wasNew && next ? " Has desbloquejat el " + next.name + "!" : "");
     } else if (state.placed >= N) {
       pts = curCastell.pts.carr;
       emoji.textContent = "😬"; title.textContent = "Carregat… però llenya!";
@@ -765,7 +803,8 @@
       emoji.textContent = "💥"; title.textContent = "Llenya!";
       sub.textContent = r.reason + " Cap punt aquesta vegada.";
     }
-    if (pts > (save.best[curCastell.id] || 0)) { save.best[curCastell.id] = pts; persist(); }
+    if (pts > (save.best[curCastell.id] || 0)) save.best[curCastell.id] = pts;
+    persist();
     uiEl.style.display = "none";
     endScreen.classList.remove("hidden");
   }
