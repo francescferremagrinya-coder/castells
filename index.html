@@ -172,15 +172,17 @@
   function setShirt(hex) { COLLA.shirt = hex; COLLA.shirtDark = darken(hex, 0.8); }
 
   // ---- Castells. The pinya counts as the 1st pis, so a "Pilar de X" has the
-  // pinya + (X-1) castellers in the trunk. `trunk` = people stacked above the pinya.
+  // pinya + (X-1) castellers in the trunk. Points are the official Concurs values
+  // where they exist (see RANKING.md). Only pilars (1 per pis) are playable for now.
   const CASTELLS = [
-    { id: "p4", num: 4, trunk: 3, cost: 0, diff: 0.82, pts: { desc: 50, carr: 30 } },
-    { id: "p5", num: 5, trunk: 4, cost: 45, diff: 0.95, pts: { desc: 95, carr: 55 } },
-    { id: "p6", num: 6, trunk: 5, cost: 100, diff: 1.1, pts: { desc: 160, carr: 95 } },
-    { id: "p7", num: 7, trunk: 6, cost: 180, diff: 1.3, pts: { desc: 250, carr: 150 } },
-    { id: "p8", num: 8, trunk: 7, cost: 300, diff: 1.52, pts: { desc: 380, carr: 220 } },
+    { id: "p4", num: 4, tag: "", trunk: 3, cost: 0, diff: 0.8, pts: { carr: 120, desc: 140 } },
+    { id: "p5", num: 5, tag: "", trunk: 4, cost: 14, diff: 0.92, pts: { carr: 185, desc: 210 } },
+    { id: "p6", num: 6, tag: "", trunk: 5, cost: 32, diff: 1.06, pts: { carr: 580, desc: 665 } },
+    { id: "p7", num: 7, tag: "f", trunk: 6, cost: 55, diff: 1.22, pts: { carr: 835, desc: 960 } },
+    { id: "p8", num: 8, tag: "fm", trunk: 7, cost: 90, diff: 1.4, pts: { carr: 1925, desc: 2210 } },
+    { id: "p9", num: 9, tag: "fmp", trunk: 8, cost: 130, diff: 1.6, pts: { carr: 3480, desc: 4000 } },
   ];
-  const castName = (c) => "Pilar de " + c.num;
+  const castName = (c) => "Pilar de " + c.num + (c.tag ? " " + c.tag : "");
 
   // ---- Save / load ----
   const SAVE_KEY = "castells_save_v3";
