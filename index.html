@@ -171,18 +171,25 @@
   }
   function setShirt(hex) { COLLA.shirt = hex; COLLA.shirtDark = darken(hex, 0.8); }
 
-  // ---- Castells. The pinya counts as the 1st pis, so a "Pilar de X" has the
-  // pinya + (X-1) castellers in the trunk. Points are the official Concurs values
-  // where they exist (see RANKING.md). Only pilars (1 per pis) are playable for now.
+  // ---- Castells. A castell is a list of floor widths (people per pis), bottom→top,
+  // on top of the pinya (pis 1). Pilars are 1-wide; wide castells add the pom de
+  // dalt (dosos=2, acotxador=1, enxaneta=1). Points: official Concurs (RANKING.md).
+  function pilarFloors(num) { const f = []; for (let k = 0; k < num - 1; k++) f.push(1); return f; }
+  function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
+  const peopleOf = (c) => c.floors.reduce((a, b) => a + b, 0);
   const CASTELLS = [
-    { id: "p4", num: 4, tag: "", trunk: 3, cost: 0, diff: 0.8, pts: { carr: 120, desc: 140 } },
-    { id: "p5", num: 5, tag: "", trunk: 4, cost: 14, diff: 0.92, pts: { carr: 185, desc: 210 } },
-    { id: "p6", num: 6, tag: "", trunk: 5, cost: 32, diff: 1.06, pts: { carr: 580, desc: 665 } },
-    { id: "p7", num: 7, tag: "f", trunk: 6, cost: 55, diff: 1.22, pts: { carr: 835, desc: 960 } },
-    { id: "p8", num: 8, tag: "fm", trunk: 7, cost: 90, diff: 1.4, pts: { carr: 1925, desc: 2210 } },
-    { id: "p9", num: 9, tag: "fmp", trunk: 8, cost: 130, diff: 1.6, pts: { carr: 3480, desc: 4000 } },
+    { id: "p4", name: "Pilar de 4", floors: pilarFloors(4), cost: 0, diff: 0.8, pts: { carr: 120, desc: 140 } },
+    { id: "p5", name: "Pilar de 5", floors: pilarFloors(5), cost: 12, diff: 0.9, pts: { carr: 185, desc: 210 } },
+    { id: "t3de6", name: "3 de 6", floors: wideFloors(3, 6), cost: 28, diff: 1.0, pts: { carr: 150, desc: 175 } },
+    { id: "t4de7", name: "4 de 7", floors: wideFloors(4, 7), cost: 55, diff: 1.12, pts: { carr: 240, desc: 275 } },
+    { id: "t3de7", name: "3 de 7", floors: wideFloors(3, 7), cost: 80, diff: 1.2, pts: { carr: 250, desc: 290 } },
+    { id: "p6", name: "Pilar de 6", floors: pilarFloors(6), cost: 110, diff: 1.26, pts: { carr: 580, desc: 665 } },
+    { id: "t4de8", name: "4 de 8", floors: wideFloors(4, 8), cost: 150, diff: 1.34, pts: { carr: 550, desc: 635 } },
+    { id: "t3de8", name: "3 de 8", floors: wideFloors(3, 8), cost: 200, diff: 1.42, pts: { carr: 610, desc: 700 } },
+    { id: "p7", name: "Pilar de 7 f", floors: pilarFloors(7), cost: 250, diff: 1.5, pts: { carr: 835, desc: 960 } },
+    { id: "p8", name: "Pilar de 8 fm", floors: pilarFloors(8), cost: 330, diff: 1.62, pts: { carr: 1925, desc: 2210 } },
   ];
-  const castName = (c) => "Pilar de " + c.num + (c.tag ? " " + c.tag : "");
+  const castName = (c) => c.name;
 
   // ---- Save / load ----
   const SAVE_KEY = "castells_save_v3";
@@ -306,19 +313,21 @@
     return { ensure, setOn, isOn: () => on, setTune };
   })();
 
-  const ORD = ["Segon", "Terç", "Quart", "Quint", "Sisè", "Setè", "Vuitè", "Novè"];
+  const ORD = ["el segon", "el terç", "el quart", "el quint", "el sisè", "el setè", "el vuitè"];
+  const ORDP = ["els segons", "els terços", "els quarts", "els quints", "els sisens", "els setens", "els vuitens"];
+  let FLOORS = [1, 1, 1], F = 3; // current castell floors (widths) + count (set in newGame)
   function levelName(i) {
-    if (i === N - 1) return "Enxaneta";
-    if (i === N - 2) return "Acotxador";
-    return ORD[i] || ("Pis " + (i + 1));
+    if (i === F - 1) return "l'enxaneta";
+    if (i === F - 2) return "l'acotxador";
+    if (FLOORS[i] === 2 && i === F - 3) return "els dosos";
+    return (FLOORS[i] > 1 ? ORDP : ORD)[i] || ("el pis " + (i + 1));
   }
-  let N = 6; // levels of the current castell (set in newGame)
   const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5 };
 
   let state = null;
 
   function newGame() {
-    N = curCastell.trunk;
+    FLOORS = curCastell.floors; F = FLOORS.length;
     state = {
       phase: PHASE.READY,
       placed: 1,
@@ -406,7 +415,7 @@
         if (state.climbProg >= 1) {
           state.climbing = false; state.climbProg = 0; state.placed++;
           state.shake = Math.min(1, state.shake + 0.3);
-          if (state.placed >= N) { state.phase = PHASE.ALETA; state.aletaT = 0; Sound.setTune("carregada"); }
+          if (state.placed >= F) { state.phase = PHASE.ALETA; state.aletaT = 0; Sound.setTune("carregada"); }
           else state.settle = 0.45;
         }
       } else {
@@ -513,12 +522,14 @@
     ctx.fillStyle = "rgba(60,54,44,.12)";
     ctx.beginPath(); ctx.ellipse(W / 2, groundY + 8, Math.min(W * 0.42, 215), 15, 0, 0, Math.PI * 2); ctx.fill();
 
+    const maxW = Math.max.apply(null, FLOORS);
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
     cxBase = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
-    levelH = Math.min(48, (groundY - H * 0.12) / (N + 1));
+    levelH = Math.min(48, (groundY - H * 0.12) / (F + 1));
     const pinyaTop = groundY - 40;
-    baseY = pinyaTop + levelH * 0.06;   // the segon's FEET rest on the pinya
-    const pinyaR = Math.min(W * 0.44, 230);
+    baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the pinya
+    const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
+    const colSpacing = levelH * 0.44;
     state.geo = { levelH: levelH, groundY: groundY, cxBase: cxBase, baseY: baseY };
 
     // --- the castell has fallen: castellers tumble onto the pinya ---
@@ -533,38 +544,42 @@
       return;
     }
 
-    // A real pilar barely tilts — it FLEXES: the base stays firm and the sway
-    // accumulates upwards, so the enxaneta moves the most.
+    // A real castell barely tilts — it FLEXES: the base stays firm and the sway
+    // accumulates upwards, so the top moves the most.
     const topSway = state.lean * levelH * 1.0;
-    const denom = Math.max(1, N - 1);
+    const denom = Math.max(1, F - 1);
     const bendX = (lvl) => topSway * Math.pow(lvl / denom, 1.6);
     const bendA = (lvl) => state.lean * 0.12 * (lvl / denom);
-    const drawAt = (lvl, yOff, idx, isTop, aleta, climbing, part) => {
-      ctx.save();
-      ctx.translate(cxBase + bendX(lvl), baseY - levelH * lvl + (yOff || 0));
-      ctx.rotate(bendA(lvl));
-      drawCasteller(0, 0, idx, isTop, aleta, 1, climbing, part);
-      ctx.restore();
+
+    // Draw one floor (fi) of `w` people side by side, at vertical level `lvl`.
+    const drawFloor = (lvl, fi, yOff, climbing, part) => {
+      const w = FLOORS[fi];
+      const isEnx = fi === F - 1;
+      const ax = cxBase + bendX(lvl), ay = baseY - levelH * lvl + (yOff || 0), rot = bendA(lvl);
+      for (let j = 0; j < w; j++) {
+        const x = ax + (j - (w - 1) / 2) * colSpacing;
+        if (part === 1 && !climbing) state.pos.push({ x: x, y: ay, rot: rot, idx: fi, isTop: isEnx });
+        ctx.save(); ctx.translate(x, ay); ctx.rotate(rot);
+        drawCasteller(0, 0, fi, isEnx, isEnx && !climbing, 1, climbing, part);
+        ctx.restore();
+      }
     };
 
-    // record standing positions (used to seed the fall)
-    state.pos = [];
-    for (let i = 0; i < state.placed; i++) state.pos.push({ x: cxBase + bendX(i), y: baseY - levelH * i, rot: bendA(i), idx: i, isTop: i === N - 1 });
-
+    state.pos = []; // recorded standing positions (used to seed the fall)
     const p = state.climbProg;
-    const bob = Math.sin(p * N * Math.PI * 2) * levelH * 0.04;
+    const bob = Math.sin(p * 6 * Math.PI * 2) * levelH * 0.04;
 
-    // Climber (up OR down) is drawn BEHIND the trunk → climbs the backs of the others.
-    if (state.climbing) {
+    // Climbing floor (up OR down) drawn BEHIND → climbs the backs of the others.
+    if (state.climbing && state.placed < F) {
       const curLevel = state.goingUp ? state.placed * p : state.placed * (1 - p);
-      drawAt(curLevel, bob, state.placed, state.placed === N - 1, false, true, 0);
+      drawFloor(curLevel, state.placed, bob, true, 0);
     }
 
-    // The standing trunk: bodies first, then all heads on top so legs never cover a face.
-    for (let i = 0; i < state.placed; i++) drawAt(i, 0, i, i === N - 1, i === N - 1, false, 1);
-    for (let i = 0; i < state.placed; i++) drawAt(i, 0, i, i === N - 1, i === N - 1, false, 2);
+    // Standing floors: all bodies first, then all heads on top so legs never cover a face.
+    for (let i = 0; i < state.placed; i++) drawFloor(i, i, 0, false, 1);
+    for (let i = 0; i < state.placed; i++) drawFloor(i, i, 0, false, 2);
 
-    // Pinya drawn last (in front) so it hides the segon's feet → he sits in the pinya.
+    // Pinya drawn last (in front) so it hides the bottom feet.
     drawPinya(cxBase, groundY, pinyaR);
   }
 
@@ -831,7 +846,8 @@
       const row = document.createElement("div");
       row.className = "castell " + (locked ? "lock" : "play");
       const best = save.best[c.id];
-      const meta = locked ? "Necessites 🧍 " + c.cost + " castellers" : (c.trunk + 1) + " pisos · pinya + " + c.trunk + " de tronc";
+      const cw = Math.max.apply(null, c.floors);
+      const meta = locked ? "Necessites 🧍 " + c.cost + " castellers" : (c.floors.length + 1) + " pisos · " + (cw > 1 ? cw + " per pis" : "pilar");
       row.innerHTML =
         '<div><div class="c-name">' + (locked ? "🔒 " : (save.done[c.id] ? "✓ " : "")) + castName(c) + '</div>' +
         '<div class="c-meta">' + meta + '</div></div>' +
@@ -864,7 +880,7 @@
     let pts = 0, earned = 0;
     if (r.ok) {
       pts = curCastell.pts.desc;
-      earned = curCastell.trunk * 10;
+      earned = Math.round(peopleOf(curCastell) * 4);
       const wasNew = !state.assaig && !save.done[curCastell.id];
       const idx = CASTELLS.indexOf(curCastell);
       const next = CASTELLS[idx + 1];
@@ -872,8 +888,8 @@
       emoji.textContent = "🎉"; title.textContent = "Descarregat!";
       sub.textContent = "Carregat i descarregat. +" + pts + " punts · +🧍 " + earned + " castellers." +
         (wasNew && next && save.castellers + earned >= next.cost ? " Ja pots provar el " + castName(next) + "!" : "");
-    } else if (state.placed >= N) {
-      pts = curCastell.pts.carr; earned = curCastell.trunk * 5;
+    } else if (state.placed >= F) {
+      pts = curCastell.pts.carr; earned = Math.round(peopleOf(curCastell) * 2);
       emoji.textContent = "😬"; title.textContent = "Carregat… però llenya!";
       sub.textContent = r.reason + " Coronat però no descarregat. +" + pts + " punts · +🧍 " + earned + ".";
     } else {

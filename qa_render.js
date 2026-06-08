@@ -249,6 +249,35 @@ function render(placed, climbing, goingUp, prog, file) {
 render(6, false, true, 0, "/tmp/full.png");
 render(3, true, true, 0.6, "/tmp/climb.png");
 
+// wide-trunk castell composition (Phase 1 of the new engine)
+function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
+function renderCastell(floors, file) {
+  const grd = ctx.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, "#cfe3ee"); grd.addColorStop(1, "#e8eedf");
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
+  const groundY = H * 0.84;
+  ctx.fillStyle = "#d8cfb8"; ctx.fillRect(0, groundY + 4, W, H);
+  const F = floors.length, maxW = Math.max.apply(null, floors);
+  levelH = Math.min(46, (groundY - H * 0.1) / (F + 1));
+  const baseY = groundY - 40 + levelH * 0.06, cxBase = W / 2;
+  const colSpacing = levelH * 0.44;
+  const drawFloor = (i, part) => {
+    const w = floors[i];
+    for (let j = 0; j < w; j++) {
+      const x = cxBase + (j - (w - 1) / 2) * colSpacing;
+      const isEnx = i === F - 1;
+      ctx.save(); ctx.translate(x, baseY - levelH * i); drawCasteller(0, 0, i, isEnx, isEnx, 1, false, part); ctx.restore();
+    }
+  };
+  for (let i = 0; i < F; i++) drawFloor(i, 1);
+  for (let i = 0; i < F; i++) drawFloor(i, 2);
+  drawPinya(cxBase, groundY, Math.min(W * 0.46, 150 + maxW * 42));
+  fs.writeFileSync(file, canvas.toBuffer("image/png"));
+  console.log("wrote", file);
+}
+renderCastell(wideFloors(3, 7), "/tmp/wide.png");      // 3 de 7
+renderCastell(wideFloors(4, 8), "/tmp/wide4.png");     // 4 de 8
+
 // zoomed single figure for detail inspection
 (function () {
   const grd = ctx.createLinearGradient(0, 0, 0, H);
