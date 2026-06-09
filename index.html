@@ -325,11 +325,11 @@
   // Plan-view layout of a floor: people form a triangle/diamond (some at the back,
   // seen from behind; the front ones lower). dx in column units, dy in levelH units.
   function layout(w) {
-    if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
-    if (w === 2) return [{ dx: -0.42, dy: 0.04, back: false }, { dx: 0.42, dy: 0.04, back: false }];
-    if (w === 3) return [{ dx: 0, dy: -0.34, back: true }, { dx: -0.46, dy: 0.12, back: false }, { dx: 0.46, dy: 0.12, back: false }];
-    if (w === 4) return [{ dx: -0.3, dy: -0.32, back: true }, { dx: 0.3, dy: -0.32, back: true }, { dx: -0.56, dy: 0.12, back: false }, { dx: 0.56, dy: 0.12, back: false }];
-    return [{ dx: -0.34, dy: -0.34, back: true }, { dx: 0.34, dy: -0.34, back: true }, { dx: -0.62, dy: 0.12, back: false }, { dx: 0, dy: 0.16, back: false }, { dx: 0.62, dy: 0.12, back: false }].slice(0, w);
+    if (w <= 1) return [{ dx: 0, dy: 0, back: false, tilt: 0 }];
+    if (w === 2) return [{ dx: -0.42, dy: 0.04, back: false, tilt: 0.1 }, { dx: 0.42, dy: 0.04, back: false, tilt: -0.1 }];
+    if (w === 3) return [{ dx: 0, dy: -0.34, back: true, tilt: 0 }, { dx: -0.5, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0.5, dy: 0.12, back: false, tilt: -0.16 }];
+    if (w === 4) return [{ dx: -0.3, dy: -0.32, back: true, tilt: 0.08 }, { dx: 0.3, dy: -0.32, back: true, tilt: -0.08 }, { dx: -0.58, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0.58, dy: 0.12, back: false, tilt: -0.16 }];
+    return [{ dx: -0.34, dy: -0.34, back: true, tilt: 0.06 }, { dx: 0.34, dy: -0.34, back: true, tilt: -0.06 }, { dx: -0.64, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0, dy: 0.16, back: false, tilt: 0 }, { dx: 0.64, dy: 0.12, back: false, tilt: -0.16 }].slice(0, w);
   }
   const floorMul = (fi) => fi === F - 2 ? 0.58 : 1; // the acotxador crouches → short floor
   const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5 };
@@ -569,10 +569,10 @@
       const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac);
       const lay = layout(w).slice().sort((a, b) => a.dy - b.dy); // back first
       for (const c of lay) {
-        const sc = c.back ? 0.9 : 1;
+        const sc = c.back ? 0.9 : 1, prot = rot + (c.tilt || 0);
         const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
-        if (part === 1 && !climbing) state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back });
-        ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
+        if (part === 1 && !climbing) state.pos.push({ x: x, y: y, rot: prot, idx: fi, isTop: isEnx, sc: sc, back: c.back });
+        ctx.save(); ctx.translate(x, y); ctx.rotate(prot); ctx.scale(sc, sc);
         drawCasteller(0, 0, fi, isEnx, isEnx && !climbing, 1, climbing, part, { back: c.back, crouch: isAcot, legsApart: isEnx });
         ctx.restore();
       }

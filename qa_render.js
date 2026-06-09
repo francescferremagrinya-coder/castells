@@ -267,11 +267,11 @@ render(3, true, true, 0.6, "/tmp/climb.png");
 function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
 // plan-view layout of a floor: people seen as a triangle/diamond (some at the back)
 function layout(w) {
-  if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
-  if (w === 2) return [{ dx: -0.42, dy: 0.04, back: false }, { dx: 0.42, dy: 0.04, back: false }];
-  if (w === 3) return [{ dx: 0, dy: -0.34, back: true }, { dx: -0.46, dy: 0.12, back: false }, { dx: 0.46, dy: 0.12, back: false }];
-  if (w === 4) return [{ dx: -0.3, dy: -0.32, back: true }, { dx: 0.3, dy: -0.32, back: true }, { dx: -0.56, dy: 0.12, back: false }, { dx: 0.56, dy: 0.12, back: false }];
-  return [{ dx: -0.34, dy: -0.34, back: true }, { dx: 0.34, dy: -0.34, back: true }, { dx: -0.62, dy: 0.12, back: false }, { dx: 0, dy: 0.16, back: false }, { dx: 0.62, dy: 0.12, back: false }].slice(0, w);
+  if (w <= 1) return [{ dx: 0, dy: 0, back: false, tilt: 0 }];
+  if (w === 2) return [{ dx: -0.42, dy: 0.04, back: false, tilt: 0.1 }, { dx: 0.42, dy: 0.04, back: false, tilt: -0.1 }];
+  if (w === 3) return [{ dx: 0, dy: -0.34, back: true, tilt: 0 }, { dx: -0.5, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0.5, dy: 0.12, back: false, tilt: -0.16 }];
+  if (w === 4) return [{ dx: -0.3, dy: -0.32, back: true, tilt: 0.08 }, { dx: 0.3, dy: -0.32, back: true, tilt: -0.08 }, { dx: -0.58, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0.58, dy: 0.12, back: false, tilt: -0.16 }];
+  return [{ dx: -0.34, dy: -0.34, back: true, tilt: 0.06 }, { dx: 0.34, dy: -0.34, back: true, tilt: -0.06 }, { dx: -0.64, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0, dy: 0.16, back: false, tilt: 0 }, { dx: 0.64, dy: 0.12, back: false, tilt: -0.16 }].slice(0, w);
 }
 function floorMul(fi, F) { return fi === F - 2 ? 0.58 : 1; } // the acotxador crouches → short floor
 function renderCastell(floors, file) {
@@ -291,7 +291,7 @@ function renderCastell(floors, file) {
     const lay = layout(w).slice().sort((a, b) => a.dy - b.dy);
     for (const c of lay) {
       const sc = c.back ? 0.9 : 1;
-      ctx.save(); ctx.translate(cxBase + c.dx * colSpacing, fy[fi] + c.dy * levelH); ctx.scale(sc, sc);
+      ctx.save(); ctx.translate(cxBase + c.dx * colSpacing, fy[fi] + c.dy * levelH); ctx.rotate(c.tilt || 0); ctx.scale(sc, sc);
       drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, part, { back: c.back, crouch: isAcot, legsApart: isEnx });
       ctx.restore();
     }
