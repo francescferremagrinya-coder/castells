@@ -120,9 +120,9 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
       arm(-sw * 0.6, shoY + u * 0.05, -sw * 0.5, shoY - u * 0.2, -u * 0.07, shoY - u * 0.46);
       arm(sw * 0.6, shoY + u * 0.05, sw * 0.5, shoY - u * 0.2, u * 0.07, shoY - u * 0.46);
     } else if (spread) {
-      // arms stretched OUT to the sides, parallel to the ground, gripping the neighbours
-      arm(-sw * 0.55, shoY + u * 0.06, -reach * 0.55, shoY + u * 0.04, -reach, shoY + u * 0.02);
-      arm(sw * 0.55, shoY + u * 0.06, reach * 0.55, shoY + u * 0.04, reach, shoY + u * 0.02);
+      // arms reach OUT to rest the hands on the next casteller's shoulders
+      arm(-sw * 0.5, shoY + u * 0.04, -reach * 0.55, shoY + u * 0.02, -reach, shoY + u * 0.07);
+      arm(sw * 0.5, shoY + u * 0.04, reach * 0.55, shoY + u * 0.02, reach, shoY + u * 0.07);
     } else {
       arm(-sw * 0.75, shoY + u * 0.05, -sw * 1.02, shoY - u * 0.04, -fs * 0.95, shoY - u * 0.22);
       arm(sw * 0.75, shoY + u * 0.05, sw * 1.02, shoY - u * 0.04, fs * 0.95, shoY - u * 0.22);
@@ -350,7 +350,7 @@ function renderCastell(floors, file) {
   levelH = Math.min(46, (groundY - H * 0.1) / (acc + 1.2));
   const baseY = groundY - 40 + levelH * 0.06, cxBase = W / 2;
   const colSpacing = levelH * 0.74;
-  const reach = colSpacing * 0.5 / levelH;
+  const reach = colSpacing * 0.92 / levelH;
   const fy = []; let c2 = 0; for (let i = 0; i < F; i++) { fy[i] = baseY - levelH * c2; c2 += floorMul(i, F, isPilar); }
   const drawFloor = (fi, part) => {
     const w = floors[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
