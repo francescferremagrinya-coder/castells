@@ -44,7 +44,8 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
   const hipY = -L, shoY = -(L + T) - breath;
   const sw = u * (isTop ? 0.155 : 0.185);
   const hw = u * 0.1;
-  const fs = u * (legsApart ? 0.32 : (crouch ? 0.28 : 0.185));
+  const spread = !!opts.spread, reach = (opts.reach || 0.34) * u;
+  const fs = u * (legsApart ? 0.32 : (crouch ? 0.28 : (spread ? 0.24 : 0.185)));
   const R = u * 0.135;
   const headY = shoY - R * 1.02;
   const OUT = "#202a31";
@@ -115,9 +116,13 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
     } else if (aleta) {
       arm(sw * 0.7, shoY + u * 0.05, sw * 1.1, shoY - u * 0.12, sw * 1.32, shoY - u * 0.56);
       arm(-sw * 0.7, shoY + u * 0.05, -sw * 1.05, hipY - u * 0.08, -hw * 1.15, hipY + u * 0.02);
-    } else if (climbing || back) {
+    } else if (climbing) {
       arm(-sw * 0.6, shoY + u * 0.05, -sw * 0.5, shoY - u * 0.2, -u * 0.07, shoY - u * 0.46);
       arm(sw * 0.6, shoY + u * 0.05, sw * 0.5, shoY - u * 0.2, u * 0.07, shoY - u * 0.46);
+    } else if (spread) {
+      // arms stretched OUT to the sides, parallel to the ground, gripping the neighbours
+      arm(-sw * 0.55, shoY + u * 0.06, -reach * 0.55, shoY + u * 0.04, -reach, shoY + u * 0.02);
+      arm(sw * 0.55, shoY + u * 0.06, reach * 0.55, shoY + u * 0.04, reach, shoY + u * 0.02);
     } else {
       arm(-sw * 0.75, shoY + u * 0.05, -sw * 1.02, shoY - u * 0.04, -fs * 0.95, shoY - u * 0.22);
       arm(sw * 0.75, shoY + u * 0.05, sw * 1.02, shoY - u * 0.04, fs * 0.95, shoY - u * 0.22);
@@ -283,33 +288,79 @@ render(3, true, true, 0.6, "/tmp/climb.png");
 function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
 // plan-view layout of a floor: people seen as a triangle/diamond (some at the back)
 function layout(w) {
-  if (w <= 1) return [{ dx: 0, dy: 0, back: false, tilt: 0 }];
-  if (w === 2) return [{ dx: -0.42, dy: 0.04, back: false, tilt: 0.1 }, { dx: 0.42, dy: 0.04, back: false, tilt: -0.1 }];
-  if (w === 3) return [{ dx: 0, dy: -0.34, back: true, tilt: 0 }, { dx: -0.5, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0.5, dy: 0.12, back: false, tilt: -0.16 }];
-  if (w === 4) return [{ dx: -0.3, dy: -0.32, back: true, tilt: 0.08 }, { dx: 0.3, dy: -0.32, back: true, tilt: -0.08 }, { dx: -0.58, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0.58, dy: 0.12, back: false, tilt: -0.16 }];
-  return [{ dx: -0.34, dy: -0.34, back: true, tilt: 0.06 }, { dx: 0.34, dy: -0.34, back: true, tilt: -0.06 }, { dx: -0.64, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0, dy: 0.16, back: false, tilt: 0 }, { dx: 0.64, dy: 0.12, back: false, tilt: -0.16 }].slice(0, w);
+  if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
+  if (w === 2) return [{ dx: -0.5, dy: 0.04, back: false }, { dx: 0.5, dy: 0.04, back: false }];
+  if (w === 3) return [{ dx: 0, dy: -0.36, back: true }, { dx: -0.56, dy: 0.12, back: false }, { dx: 0.56, dy: 0.12, back: false }];
+  if (w === 4) return [{ dx: -0.34, dy: -0.34, back: true }, { dx: 0.34, dy: -0.34, back: true }, { dx: -0.66, dy: 0.12, back: false }, { dx: 0.66, dy: 0.12, back: false }];
+  return [{ dx: -0.38, dy: -0.36, back: true }, { dx: 0.38, dy: -0.36, back: true }, { dx: -0.72, dy: 0.12, back: false }, { dx: 0, dy: 0.16, back: false }, { dx: 0.72, dy: 0.12, back: false }].slice(0, w);
 }
 function floorMul(fi, F, isPilar) { if (fi === F - 2) return isPilar ? 0.72 : 0.56; return 1; }
+// A stylised village square with the town hall (ajuntament) behind.
+function drawPlaca(groundY) {
+  const by = groundY + 4;
+  // row of village houses across the back
+  let hx = -12, seed = 3;
+  while (hx < W) {
+    const w = 44 + (seed * 37 % 28), h = 64 + (seed * 53 % 54);
+    const odd = seed % 2;
+    ctx.fillStyle = odd ? "#a65b3a" : "#925334"; // roof
+    ctx.beginPath(); ctx.moveTo(hx - 3, by - h); ctx.lineTo(hx + w / 2, by - h - w * 0.16); ctx.lineTo(hx + w + 3, by - h); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = odd ? "#e0d0b0" : "#d8c4a0"; ctx.fillRect(hx, by - h, w, h); // facade
+    ctx.fillStyle = "rgba(70,80,90,.5)";
+    for (let wy = by - h + 12; wy < by - 14; wy += 22) for (let wx = hx + 7; wx < hx + w - 11; wx += 17) ctx.fillRect(wx, wy, 9, 13);
+    hx += w - 3; seed++;
+  }
+  // town hall (ajuntament), centred and taller
+  const aw = Math.min(W * 0.42, 250), ax = W / 2 - aw / 2, ah = H * 0.3, ay = by - ah;
+  ctx.fillStyle = "#8a4a2e"; ctx.fillRect(ax - 12, ay - 12, aw + 24, 16); // cornice/roof
+  ctx.fillStyle = "#efe7d6"; ctx.fillRect(ax, ay, aw, ah);                 // stone facade
+  ctx.fillStyle = "rgba(0,0,0,.06)"; ctx.fillRect(ax + aw * 0.62, ay, aw * 0.38, ah);
+  // arcades (ground-floor arches)
+  const na = 3, ow = aw / na;
+  ctx.fillStyle = "#3a3128";
+  for (let i = 0; i < na; i++) {
+    const ox = ax + i * ow + ow * 0.2, owd = ow * 0.6;
+    ctx.beginPath(); ctx.moveTo(ox, by); ctx.lineTo(ox, by - ah * 0.32); ctx.arc(ox + owd / 2, by - ah * 0.32, owd / 2, Math.PI, 0); ctx.lineTo(ox + owd, by); ctx.closePath(); ctx.fill();
+  }
+  // balcony windows (upper floor)
+  ctx.fillStyle = "#46586a";
+  for (let i = 0; i < na; i++) { const wx = ax + i * ow + ow * 0.32; ctx.fillRect(wx, ay + ah * 0.42, ow * 0.36, ah * 0.22); }
+  ctx.fillStyle = "#5a4632"; ctx.fillRect(ax + aw * 0.08, ay + ah * 0.66, aw * 0.84, 5); // balcony rail
+  // clock + pediment + senyera flag
+  ctx.fillStyle = "#f5f2e8"; ctx.strokeStyle = "#3a3128"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(W / 2, ay + ah * 0.2, ah * 0.08, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W / 2, ay + ah * 0.2); ctx.lineTo(W / 2, ay + ah * 0.15); ctx.moveTo(W / 2, ay + ah * 0.2); ctx.lineTo(W / 2 + ah * 0.05, ay + ah * 0.2); ctx.stroke();
+  ctx.strokeStyle = "#6b5a44"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W / 2, ay - 12); ctx.lineTo(W / 2, ay - 12 - ah * 0.18); ctx.stroke();
+  const fw = ah * 0.16, fh = ah * 0.1, fy0 = ay - 12 - ah * 0.18;
+  ctx.fillStyle = "#f2c200"; ctx.fillRect(W / 2, fy0, fw, fh);
+  ctx.fillStyle = "#d4231f"; for (let s = 0; s < 4; s++) ctx.fillRect(W / 2, fy0 + fh * (0.12 + s * 0.24), fw, fh * 0.12);
+  // plaza paving (foreground)
+  ctx.fillStyle = "#cfc3a6"; ctx.fillRect(0, by, W, H - by);
+  ctx.strokeStyle = "rgba(90,80,60,.18)"; ctx.lineWidth = 1;
+  for (let i = 1; i < 7; i++) { ctx.beginPath(); ctx.moveTo(W / 2 + (i - 3.5) * 80, by); ctx.lineTo(W / 2 + (i - 3.5) * 240, H); ctx.stroke(); }
+}
 function renderCastell(floors, file) {
   const grd = ctx.createLinearGradient(0, 0, 0, H);
   grd.addColorStop(0, "#cfe3ee"); grd.addColorStop(1, "#e8eedf");
   ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
   const groundY = H * 0.84;
-  ctx.fillStyle = "#d8cfb8"; ctx.fillRect(0, groundY + 4, W, H);
+  drawPlaca(groundY);
   const F = floors.length, maxW = Math.max.apply(null, floors), isPilar = maxW === 1;
   let acc = 0; for (let i = 0; i < F; i++) acc += floorMul(i, F, isPilar);
   levelH = Math.min(46, (groundY - H * 0.1) / (acc + 1.2));
   const baseY = groundY - 40 + levelH * 0.06, cxBase = W / 2;
-  const colSpacing = levelH * 0.62;
+  const colSpacing = levelH * 0.74;
+  const reach = colSpacing * 0.5 / levelH;
   const fy = []; let c2 = 0; for (let i = 0; i < F; i++) { fy[i] = baseY - levelH * c2; c2 += floorMul(i, F, isPilar); }
   const drawFloor = (fi, part) => {
     const w = floors[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
-    const kid = isEnx ? 0.5 : (isAcot ? 0.75 : 1);
+    const kid = isEnx ? 0.65 : (isAcot ? 0.8 : 1);
+    const spread = !isPilar && !isEnx && !isAcot; // trunk & dosos grip sideways
     const lay = layout(w).slice().sort((a, b) => a.dy - b.dy);
     for (const c of lay) {
-      const sc = (c.back ? 0.9 : 1) * kid;
-      ctx.save(); ctx.translate(cxBase + c.dx * colSpacing, fy[fi] + c.dy * levelH); ctx.rotate(c.tilt || 0); ctx.scale(sc, sc);
-      drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, part, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot });
+      const sc = (c.back ? 0.92 : 1) * kid;
+      ctx.save(); ctx.translate(cxBase + c.dx * colSpacing, fy[fi] + c.dy * levelH); ctx.scale(sc, sc);
+      drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, part, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot, spread: spread, reach: reach });
       ctx.restore();
     }
   };
