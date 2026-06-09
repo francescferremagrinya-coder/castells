@@ -125,19 +125,35 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
   }
 
   if (part !== 1) {
+    const helmet = !!opts.helmet;
     // --- neck + head (drawn in a later pass so legs never cover the face) ---
     ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
     ctx.beginPath(); roundRect(-u * 0.05, shoY - u * 0.06, u * 0.1, u * 0.1, u * 0.03); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.save(); ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.clip();
     ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(R * 0.25, headY - R, R, R * 2);
-    ctx.fillStyle = "#33271c";
-    ctx.beginPath(); ctx.ellipse(-R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.95);
-    ctx.fillStyle = darken(COLLA.shirt, 0.78); ctx.fillRect(-R, headY - R * 0.12, R * 2, R * 0.06);
+    if (!helmet) {
+      ctx.fillStyle = "#33271c";
+      ctx.beginPath(); ctx.ellipse(-R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.95);
+      ctx.fillStyle = darken(COLLA.shirt, 0.78); ctx.fillRect(-R, headY - R * 0.12, R * 2, R * 0.06);
+    }
     ctx.restore();
-    if (back) {
+    if (helmet) {
+      // black helmet covering the top of the head + chin strap
+      ctx.fillStyle = "#1c1c1c"; ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(0, headY - R * 0.18, R * 1.04, R * 0.92, 0, Math.PI, 0); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.beginPath(); ctx.ellipse(-R * 0.35, headY - R * 0.45, R * 0.3, R * 0.18, -0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#1c1c1c"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(-R * 0.9, headY - R * 0.1); ctx.lineTo(-R * 0.5, headY + R * 0.7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(R * 0.9, headY - R * 0.1); ctx.lineTo(R * 0.5, headY + R * 0.7); ctx.stroke();
+      if (!back) {
+        ctx.fillStyle = "#2a2018";
+        ctx.beginPath(); ctx.arc(-R * 0.3, headY + R * 0.28, R * 0.09, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(R * 0.3, headY + R * 0.28, R * 0.09, 0, Math.PI * 2); ctx.fill();
+      }
+    } else if (back) {
       // seen from behind: mocador knot at the nape, hair, NO face
       ctx.fillStyle = "#33271c"; ctx.beginPath(); ctx.ellipse(0, headY + R * 0.15, R * 0.7, R * 0.78, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.8);
@@ -273,26 +289,27 @@ function layout(w) {
   if (w === 4) return [{ dx: -0.3, dy: -0.32, back: true, tilt: 0.08 }, { dx: 0.3, dy: -0.32, back: true, tilt: -0.08 }, { dx: -0.58, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0.58, dy: 0.12, back: false, tilt: -0.16 }];
   return [{ dx: -0.34, dy: -0.34, back: true, tilt: 0.06 }, { dx: 0.34, dy: -0.34, back: true, tilt: -0.06 }, { dx: -0.64, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0, dy: 0.16, back: false, tilt: 0 }, { dx: 0.64, dy: 0.12, back: false, tilt: -0.16 }].slice(0, w);
 }
-function floorMul(fi, F) { return fi === F - 2 ? 0.58 : 1; } // the acotxador crouches → short floor
+function floorMul(fi, F, isPilar) { if (fi === F - 2) return isPilar ? 0.72 : 0.56; return 1; }
 function renderCastell(floors, file) {
   const grd = ctx.createLinearGradient(0, 0, 0, H);
   grd.addColorStop(0, "#cfe3ee"); grd.addColorStop(1, "#e8eedf");
   ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
   const groundY = H * 0.84;
   ctx.fillStyle = "#d8cfb8"; ctx.fillRect(0, groundY + 4, W, H);
-  const F = floors.length, maxW = Math.max.apply(null, floors);
-  let acc = 0; for (let i = 0; i < F; i++) acc += floorMul(i, F);
+  const F = floors.length, maxW = Math.max.apply(null, floors), isPilar = maxW === 1;
+  let acc = 0; for (let i = 0; i < F; i++) acc += floorMul(i, F, isPilar);
   levelH = Math.min(46, (groundY - H * 0.1) / (acc + 1.2));
   const baseY = groundY - 40 + levelH * 0.06, cxBase = W / 2;
-  const colSpacing = levelH * 0.46;
-  const fy = []; let c2 = 0; for (let i = 0; i < F; i++) { fy[i] = baseY - levelH * c2; c2 += floorMul(i, F); }
+  const colSpacing = levelH * 0.62;
+  const fy = []; let c2 = 0; for (let i = 0; i < F; i++) { fy[i] = baseY - levelH * c2; c2 += floorMul(i, F, isPilar); }
   const drawFloor = (fi, part) => {
     const w = floors[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
+    const kid = isEnx ? 0.5 : (isAcot ? 0.75 : 1);
     const lay = layout(w).slice().sort((a, b) => a.dy - b.dy);
     for (const c of lay) {
-      const sc = c.back ? 0.9 : 1;
+      const sc = (c.back ? 0.9 : 1) * kid;
       ctx.save(); ctx.translate(cxBase + c.dx * colSpacing, fy[fi] + c.dy * levelH); ctx.rotate(c.tilt || 0); ctx.scale(sc, sc);
-      drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, part, { back: c.back, crouch: isAcot, legsApart: isEnx });
+      drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, part, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot });
       ctx.restore();
     }
   };
@@ -304,6 +321,7 @@ function renderCastell(floors, file) {
 }
 renderCastell(wideFloors(3, 7), "/tmp/wide.png");      // 3 de 7
 renderCastell(wideFloors(4, 8), "/tmp/wide4.png");     // 4 de 8
+renderCastell([1, 1, 1, 1], "/tmp/pilar.png");         // pilar de 5 (all standing, small kids)
 renderCastell([3, 2, 1, 1], "/tmp/pom.png");           // short, to inspect the pom de dalt
 
 // zoomed single figure for detail inspection

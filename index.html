@@ -331,7 +331,7 @@
     if (w === 4) return [{ dx: -0.3, dy: -0.32, back: true, tilt: 0.08 }, { dx: 0.3, dy: -0.32, back: true, tilt: -0.08 }, { dx: -0.58, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0.58, dy: 0.12, back: false, tilt: -0.16 }];
     return [{ dx: -0.34, dy: -0.34, back: true, tilt: 0.06 }, { dx: 0.34, dy: -0.34, back: true, tilt: -0.06 }, { dx: -0.64, dy: 0.12, back: false, tilt: 0.16 }, { dx: 0, dy: 0.16, back: false, tilt: 0 }, { dx: 0.64, dy: 0.12, back: false, tilt: -0.16 }].slice(0, w);
   }
-  const floorMul = (fi) => fi === F - 2 ? 0.58 : 1; // the acotxador crouches → short floor
+  const floorMul = (fi, isPilar) => fi === F - 2 ? (isPilar ? 0.72 : 0.56) : 1; // acotxador floor
   const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5 };
 
   let state = null;
@@ -463,7 +463,7 @@
     // toward the side it was leaning and pile onto the pinya
     const side = Math.sign(state.lean) || 1;
     state.debris = (state.pos || []).map((p) => ({
-      x: p.x, y: p.y, rot: p.rot, idx: p.idx, isTop: p.isTop, sc: p.sc, back: p.back,
+      x: p.x, y: p.y, rot: p.rot, idx: p.idx, isTop: p.isTop, sc: p.sc, back: p.back, helmet: p.helmet,
       vx: side * (40 + Math.random() * 120) + (Math.random() - 0.5) * 60,
       vy: -30 - Math.random() * 70,
       vr: (Math.random() - 0.5) * 7,
@@ -532,9 +532,9 @@
     ctx.fillStyle = "rgba(60,54,44,.12)";
     ctx.beginPath(); ctx.ellipse(W / 2, groundY + 8, Math.min(W * 0.42, 215), 15, 0, 0, Math.PI * 2); ctx.fill();
 
-    const maxW = Math.max.apply(null, FLOORS);
+    const maxW = Math.max.apply(null, FLOORS), isPilar = maxW === 1;
     // cumulative vertical position of each floor (the pom is compressed)
-    const cum = []; let acc = 0; for (let i = 0; i < F; i++) { cum[i] = acc; acc += floorMul(i); }
+    const cum = []; let acc = 0; for (let i = 0; i < F; i++) { cum[i] = acc; acc += floorMul(i, isPilar); }
     const totalCum = acc;
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
     cxBase = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
@@ -542,7 +542,7 @@
     const pinyaTop = groundY - 40;
     baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the pinya
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
-    const colSpacing = levelH * 0.46;
+    const colSpacing = levelH * 0.62;
     state.geo = { levelH: levelH, groundY: groundY, cxBase: cxBase, baseY: baseY };
     const fyOf = (fi) => baseY - levelH * cum[fi];
 
@@ -552,7 +552,7 @@
       const ds = state.debris.slice().sort((a, b) => a.y - b.y);
       for (const d of ds) {
         ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot); ctx.scale(d.sc || 1, d.sc || 1);
-        drawCasteller(0, 0, d.idx, d.isTop, false, 1, false, 0, { back: d.back });
+        drawCasteller(0, 0, d.idx, d.isTop, false, 1, false, 0, { back: d.back, helmet: d.helmet });
         ctx.restore();
       }
       return;
@@ -566,14 +566,15 @@
     // Draw one floor (fi) at vertical centre yc, as a triangle/diamond of people.
     const drawFloor = (yc, fi, climbing, part) => {
       const w = FLOORS[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
+      const kid = isEnx ? 0.5 : (isAcot ? 0.75 : 1);  // enxaneta/acotxador are kids
       const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac);
       const lay = layout(w).slice().sort((a, b) => a.dy - b.dy); // back first
       for (const c of lay) {
-        const sc = c.back ? 0.9 : 1, prot = rot + (c.tilt || 0);
+        const sc = (c.back ? 0.9 : 1) * kid, prot = rot + (c.tilt || 0);
         const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
-        if (part === 1 && !climbing) state.pos.push({ x: x, y: y, rot: prot, idx: fi, isTop: isEnx, sc: sc, back: c.back });
+        if (part === 1 && !climbing) state.pos.push({ x: x, y: y, rot: prot, idx: fi, isTop: isEnx, sc: sc, back: c.back, helmet: isEnx || isAcot });
         ctx.save(); ctx.translate(x, y); ctx.rotate(prot); ctx.scale(sc, sc);
-        drawCasteller(0, 0, fi, isEnx, isEnx && !climbing, 1, climbing, part, { back: c.back, crouch: isAcot, legsApart: isEnx });
+        drawCasteller(0, 0, fi, isEnx, isEnx && !climbing, 1, climbing, part, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot });
         ctx.restore();
       }
     };
@@ -706,19 +707,35 @@
     }
 
     if (part !== 1) {
+      const helmet = !!opts.helmet;
       // --- neck + head (drawn in a later pass so legs never cover the face) ---
       ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
       ctx.beginPath(); roundRect(-u * 0.05, shoY - u * 0.06, u * 0.1, u * 0.1, u * 0.03); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.save(); ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.clip();
       ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(R * 0.25, headY - R, R, R * 2);
-      ctx.fillStyle = "#33271c";
-      ctx.beginPath(); ctx.ellipse(-R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.ellipse(R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.95);
-      ctx.fillStyle = darken(COLLA.shirt, 0.78); ctx.fillRect(-R, headY - R * 0.12, R * 2, R * 0.06);
+      if (!helmet) {
+        ctx.fillStyle = "#33271c";
+        ctx.beginPath(); ctx.ellipse(-R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(R * 0.82, headY + R * 0.1, R * 0.3, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.95);
+        ctx.fillStyle = darken(COLLA.shirt, 0.78); ctx.fillRect(-R, headY - R * 0.12, R * 2, R * 0.06);
+      }
       ctx.restore();
-      if (back) {
+      if (helmet) {
+        // black helmet covering the top of the head + chin strap (all enxanetes wear one)
+        ctx.fillStyle = "#1c1c1c"; ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.ellipse(0, headY - R * 0.18, R * 1.04, R * 0.92, 0, Math.PI, 0); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "rgba(255,255,255,.18)"; ctx.beginPath(); ctx.ellipse(-R * 0.35, headY - R * 0.45, R * 0.3, R * 0.18, -0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#1c1c1c"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-R * 0.9, headY - R * 0.1); ctx.lineTo(-R * 0.5, headY + R * 0.7); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(R * 0.9, headY - R * 0.1); ctx.lineTo(R * 0.5, headY + R * 0.7); ctx.stroke();
+        if (!back) {
+          ctx.fillStyle = "#2a2018";
+          ctx.beginPath(); ctx.arc(-R * 0.3, headY + R * 0.28, R * 0.09, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(R * 0.3, headY + R * 0.28, R * 0.09, 0, Math.PI * 2); ctx.fill();
+        }
+      } else if (back) {
         // seen from behind: mocador knot at the nape, hair, NO face
         ctx.fillStyle = "#33271c"; ctx.beginPath(); ctx.ellipse(0, headY + R * 0.15, R * 0.7, R * 0.78, 0, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = COLLA.shirt; ctx.fillRect(-R, headY - R * 1.05, R * 2, R * 0.8);
