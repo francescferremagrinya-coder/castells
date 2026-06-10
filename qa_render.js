@@ -386,3 +386,43 @@ renderCastell([3, 2, 1, 1], "/tmp/pom.png");           // short, to inspect the 
   fs.writeFileSync("/tmp/figure.png", canvas.toBuffer("image/png"));
   console.log("wrote /tmp/figure.png");
 })();
+
+// ---- Sprite preview (illustrated tronc art, recoloured) ----
+const napi = require('@napi-rs/canvas');
+function rgb2hsv(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),df=mx-mn;let h=0;if(df){if(mx===r)h=((g-b)/df)%6;else if(mx===g)h=(b-r)/df+2;else h=(r-g)/df+4;h*=60;if(h<0)h+=360;}return[h,mx?df/mx:0,mx];}
+function hsv2rgb(h,s,v){const cc=v*s,xx=cc*(1-Math.abs((h/60)%2-1)),m=v-cc;let r,g,b;if(h<60){r=cc;g=xx;b=0;}else if(h<120){r=xx;g=cc;b=0;}else if(h<180){r=0;g=cc;b=xx;}else if(h<240){r=0;g=xx;b=cc;}else if(h<300){r=xx;g=0;b=cc;}else{r=cc;g=0;b=xx;}return[(r+m)*255,(g+m)*255,(b+m)*255];}
+function recolor(img,hex){const W=img.width,H=img.height;const c=napi.createCanvas(W,H),x=c.getContext('2d');x.drawImage(img,0,0);const id=x.getImageData(0,0,W,H),d=id.data;const th=rgb2hsv(parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16))[0];for(let i=0;i<d.length;i+=4){if(d[i+3]<10)continue;const[h,s,v]=rgb2hsv(d[i],d[i+1],d[i+2]);if(s>0.45&&v>0.22&&(h<18||h>340)){const[nr,ng,nb]=hsv2rgb(th,Math.min(1,s),v);d[i]=nr;d[i+1]=ng;d[i+2]=nb;}}x.putImageData(id,0,0);return c;}
+
+function renderCastellSprite(floors, file, spr) {
+  const grd = ctx.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, "#cfe3ee"); grd.addColorStop(1, "#e8eedf");
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
+  const groundY = H * 0.84; drawPlaca(groundY);
+  const F = floors.length, maxW = Math.max.apply(null, floors), isPilar = maxW === 1;
+  let acc = 0; for (let i = 0; i < F; i++) acc += floorMul(i, F, isPilar);
+  levelH = Math.min(46, (groundY - H * 0.1) / (acc + 1.2));
+  const baseY = groundY - 40 + levelH * 0.06, cxBase = W / 2;
+  const colSpacing = levelH * 0.62, reach = colSpacing * 0.92 / levelH, spriteScale = levelH / 1000;
+  const fy = []; let c2 = 0; for (let i = 0; i < F; i++) { fy[i] = baseY - levelH * c2; c2 += floorMul(i, F, isPilar); }
+  for (let fi = F - 1; fi >= 0; fi--) { // TOP to BOTTOM so heads stay visible
+    const w = floors[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
+    const lay = layout(w).slice().sort((a, b) => a.dy - b.dy);
+    for (const c of lay) {
+      const x = cxBase + c.dx * colSpacing, y = fy[fi] + c.dy * levelH;
+      const eligible = spr && !isPilar && !isEnx && !isAcot && !c.back;
+      if (eligible) {
+        ctx.save(); ctx.translate(x, y); ctx.drawImage(spr, -513 * spriteScale, -1351 * spriteScale, 1024 * spriteScale, 1536 * spriteScale); ctx.restore();
+      } else {
+        const sc = (c.back ? 0.92 : 1) * (isEnx ? 0.65 : isAcot ? 0.8 : 1);
+        ctx.save(); ctx.translate(x, y); ctx.scale(sc, sc);
+        drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, 0, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot, spread: !isPilar && !isEnx && !isAcot, reach: reach });
+        ctx.restore();
+      }
+    }
+  }
+  drawPinya(cxBase, groundY, Math.min(W * 0.46, 130 + maxW * 46));
+  fs.writeFileSync(file, canvas.toBuffer("image/png")); console.log("wrote", file);
+}
+napi.loadImage('assets/casteller_tronc.png').then(img => {
+  const spr = recolor(img, '#2f6f8f');
+  renderCastellSprite(wideFloors(3, 7), '/tmp/spr3de7.png', spr);
+}).catch(e => console.log('sprite err', e.message));
