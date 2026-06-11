@@ -10,7 +10,7 @@
   #game { display: block; touch-action: none; }
   #ui { position: fixed; inset: 0; pointer-events: none; }
 
-  .bars { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: min(92%, 460px); }
+  .bars { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); width: min(92%, 460px); z-index: 4; }
   .label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #4a5a66; margin: 0 0 3px 2px; }
 
   .bal-wrap { position: relative; height: 18px; background: #e7eef3; border-radius: 10px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.18); }
@@ -20,10 +20,10 @@
   .fat-wrap { margin-top: 12px; height: 14px; background: #e7eef3; border-radius: 8px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,.18); }
   .fat-fill { height: 100%; width: 100%; background: linear-gradient(90deg,#c94b2e 0%,#e6a23c 45%,#4ca05a 100%); border-radius: 8px; }
 
-  .status { position: absolute; top: 92px; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 700; color: #2c3942; background: rgba(255,255,255,.7); padding: 4px 14px; border-radius: 20px; white-space: nowrap; }
+  .status { position: absolute; bottom: 92px; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 700; color: #2c3942; background: rgba(255,255,255,.7); padding: 4px 14px; border-radius: 20px; white-space: nowrap; z-index: 4; }
 
-  .ctrls { position: absolute; bottom: 0; left: 0; right: 0; height: 38%; display: flex; pointer-events: auto; }
-  .ctrl { flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 26px; }
+  .ctrls { position: absolute; bottom: 0; left: 0; right: 0; height: 50%; display: flex; pointer-events: auto; }
+  .ctrl { flex: 1; display: flex; align-items: center; justify-content: center; padding-bottom: 0; }
   .ctrl span { font-size: 46px; color: rgba(40,40,40,.25); user-select: none; transition: color .08s, transform .08s; }
   .ctrl.active span { color: rgba(40,40,40,.65); transform: scale(.86); }
 
@@ -237,111 +237,30 @@
 
   // ---- Sound: synthesised gralla + tabal + crowd (Web Audio API, no files) ----
   const Sound = (() => {
-    let ac = null, master = null, schedTimer = null, running = false, on = true;
-    let step = 0, nextTime = 0, eighth = 0, tune = "toc";
-    const BPM = 120, sixteenth = 60 / BPM / 4;
-
-    function noiseBuffer(sec) {
-      const len = Math.floor(ac.sampleRate * sec);
-      const buf = ac.createBuffer(1, len, ac.sampleRate);
-      const d = buf.getChannelData(0);
-      let last = 0;
-      for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; last = (last + 0.02 * w) / 1.02; d[i] = last * 3.5; }
-      return buf;
-    }
-    function startCrowd() {
-      const src = ac.createBufferSource(); src.buffer = noiseBuffer(2); src.loop = true;
-      const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 850;
-      const hp = ac.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 180;
-      const cg = ac.createGain(); cg.gain.value = 0.16;
-      const lfo = ac.createOscillator(); lfo.frequency.value = 0.13;
-      const lfoG = ac.createGain(); lfoG.gain.value = 0.05;
-      lfo.connect(lfoG); lfoG.connect(cg.gain);
-      src.connect(hp); hp.connect(lp); lp.connect(cg); cg.connect(master);
-      src.start(); lfo.start();
-    }
-    function tabal(t, accent) {
-      const o = ac.createOscillator(); o.type = "sine";
-      o.frequency.setValueAtTime(165, t); o.frequency.exponentialRampToValueAtTime(58, t + 0.12);
-      const g = ac.createGain(); g.gain.setValueAtTime(accent ? 0.9 : 0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-      o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.2);
-      const n = ac.createBufferSource(); n.buffer = noiseBuffer(0.05);
-      const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2300;
-      const ng = ac.createGain(); ng.gain.setValueAtTime(accent ? 0.32 : 0.18, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-      n.connect(bp); bp.connect(ng); ng.connect(master); n.start(t); n.stop(t + 0.06);
-    }
-    function gralla(t, freq, dur) {
-      const o = ac.createOscillator(); o.type = "sawtooth"; o.frequency.value = freq;
-      const vib = ac.createOscillator(); vib.frequency.value = 5.5;
-      const vibG = ac.createGain(); vibG.gain.value = freq * 0.012;
-      vib.connect(vibG); vibG.connect(o.frequency);
-      const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1600; bp.Q.value = 6;
-      const g = ac.createGain();
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.2, t + 0.03);
-      g.gain.setValueAtTime(0.2, t + dur * 0.7);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(bp); bp.connect(g); g.connect(master);
-      o.start(t); vib.start(t); o.stop(t + dur + 0.02); vib.stop(t + dur + 0.02);
-    }
-    // Catalan solfège → Hz (gralla register). The toc de castells is in mixolydian.
-    const sol = 392.00, la = 440.00, si = 493.88, doN = 523.25, re = 587.33, mi = 659.25, fa = 698.46, solH = 783.99, laH = 880.00;
-    // Main "toc de castells" phrase that accompanies the raising of the tower.
-    const TOC = [
-      solH, solH, solH, re, mi, fa, mi, re, doN, re,
-      doN, si, re, solH, re, si, re, doN, si, doN,
-      mi, re, mi, doN, re, si, 0, 0,
-    ];
-    // "Carregada": the aleta — a trill on re/mi and a held high sol, festive.
-    const CARREGADA = [
-      re, mi, re, mi, solH, solH, solH, solH,
-      mi, fa, solH, laH, solH, 0, re, mi, re, mi, solH, solH, solH, 0,
-    ];
-    // "Sortida": the descending phrase that accompanies the descàrrega.
-    const SORTIDA = [
-      solH, fa, mi, re, doN, re, doN, si,
-      la, si, doN, re, mi, re, doN, si,
-      la, sol, la, si, doN, re, doN, 0,
-    ];
-    const tunes = { toc: TOC, carregada: CARREGADA, sortida: SORTIDA };
-    function scheduleStep(s, t) {
-      // tabal: a marching pulse, fuller during the carregada
-      if (s % 4 === 0) tabal(t, s % 8 === 0);
-      if (s === 10 || s === 14) tabal(t, false);
-      if (tune === "carregada" && s % 2 === 0) tabal(t, s % 4 === 0);
-      // gralla melody on eighth notes from the current tune
-      if (s % 2 === 0) {
-        const mel = tunes[tune];
-        const f = mel[eighth % mel.length];
-        if (f) gralla(t, f, sixteenth * 2 * 0.92);
-        eighth++;
-      }
-    }
-    function scheduler() {
-      while (nextTime < ac.currentTime + 0.2) { scheduleStep(step % 16, nextTime); nextTime += sixteenth; step++; }
-      schedTimer = setTimeout(scheduler, 50);
-    }
-    function setTune(name) { if (tunes[name] && name !== tune) { tune = name; eighth = 0; } }
+    // Real recordings: the building toc and the carregada (a few seconds before the aleta).
+    let on = true, pujant = null, carregada = null, ready = false;
     function ensure() {
       if (!on) return;
-      if (!ac) {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        ac = new AC();
-        master = ac.createGain(); master.gain.value = 0; master.connect(ac.destination);
-        startCrowd();
+      if (!ready) {
+        try {
+          pujant = new Audio("assets/audio_pujant.mp3"); pujant.loop = true; pujant.volume = 0.55;
+          carregada = new Audio("assets/audio_carregada.mp3"); carregada.volume = 0.85;
+          ready = true;
+        } catch (e) { return; }
       }
-      if (ac.state === "suspended") ac.resume();
-      master.gain.cancelScheduledValues(ac.currentTime);
-      master.gain.linearRampToValueAtTime(0.5, ac.currentTime + 0.6);
-      if (!running) { running = true; step = 0; nextTime = ac.currentTime + 0.1; scheduler(); }
+    }
+    function play(a) { if (a) { try { a.currentTime = 0; } catch (e) {} const p = a.play(); if (p && p.catch) p.catch(function () {}); } }
+    function setTune(name) {
+      ensure(); if (!ready) return;
+      if (name === "carregada") { try { pujant.pause(); } catch (e) {} play(carregada); }
+      else { try { carregada.pause(); } catch (e) {} if (pujant.paused) play(pujant); }
     }
     function setOn(v) {
       on = v;
-      if (v) { ensure(); }
-      else if (ac) { master.gain.cancelScheduledValues(ac.currentTime); master.gain.linearRampToValueAtTime(0, ac.currentTime + 0.3); clearTimeout(schedTimer); running = false; }
+      if (!v) { if (pujant) pujant.pause(); if (carregada) carregada.pause(); }
+      else { ensure(); }
     }
-    return { ensure, setOn, isOn: () => on, setTune };
+    return { ensure: ensure, setOn: setOn, isOn: function () { return on; }, setTune: setTune };
   })();
 
   const ORD = ["el segon", "el terç", "el quart", "el quint", "el sisè", "el setè", "el vuitè"];
@@ -456,12 +375,15 @@
         if (state.climbProg >= 1) {
           state.climbing = false; state.climbProg = 0; state.placed++;
           state.shake = Math.min(1, state.shake + 0.3);
-          if (state.placed >= F) { state.phase = PHASE.ALETA; state.aletaT = 0; Sound.setTune("carregada"); }
+          if (state.placed >= F) { state.phase = PHASE.ALETA; state.aletaT = 0; }
           else state.settle = 0.45;
         }
       } else {
         state.settle -= dt;
-        if (state.settle <= 0 && Math.abs(state.lean) < 0.5) { state.climbing = true; state.climbProg = 0; }
+        if (state.settle <= 0 && Math.abs(state.lean) < 0.5) {
+          state.climbing = true; state.climbProg = 0;
+          if (state.placed === F - 1) Sound.setTune("carregada"); // enxaneta puja → toc de carregada
+        }
       }
     } else if (state.phase === PHASE.ALETA) {
       state.aletaT += dt;
@@ -599,7 +521,7 @@
     const totalCum = acc;
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
     cxBase = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
-    levelH = Math.min(48, (groundY - H * 0.12) / (totalCum + 1.2));
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + 0.9));
     const pinyaTop = groundY - 40;
     baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the pinya
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
