@@ -255,8 +255,8 @@
     { id: "p6", name: "Pilar de 6", floors: pilarFloors(6), cost: 110, diff: 1.26, pts: { carr: 580, desc: 665 } },
     { id: "t4de8", name: "4 de 8", floors: wideFloors(4, 8), cost: 150, diff: 1.34, pts: { carr: 550, desc: 635 } },
     { id: "t3de8", name: "3 de 8", floors: wideFloors(3, 8), cost: 200, diff: 1.42, pts: { carr: 610, desc: 700 } },
-    { id: "p7", name: "Pilar de 7 f", floors: pilarFloors(7), cost: 250, diff: 1.5, pts: { carr: 835, desc: 960 } },
-    { id: "p8", name: "Pilar de 8 fm", floors: pilarFloors(8), cost: 330, diff: 1.62, pts: { carr: 1925, desc: 2210 } },
+    { id: "p7", name: "Pilar de 7 f", floors: pilarFloors(7), cost: 250, diff: 1.5, folre: true, pts: { carr: 835, desc: 960 } },
+    { id: "p8", name: "Pilar de 8 fm", floors: pilarFloors(8), cost: 330, diff: 1.62, folre: true, manilles: true, pts: { carr: 1925, desc: 2210 } },
   ];
   const castName = (c) => c.name;
 
@@ -437,8 +437,8 @@
     const wobble = Math.sin(noiseT * 2.1) * 0.5 + Math.sin(noiseT * 5.3 + 1.3) * 0.3 + (Math.random() - 0.5) * 0.5;
     state.leanVel += wobble * diff * 0.34 * dt;
     state.leanVel += state.lean * diff * 1.2 * dt;     // instability (grows with height)
-    // a good base holds itself up (the castell "puja sol"); player input only assists
-    state.leanVel -= state.lean * state.solidesa * 2.4 * dt;
+    // a good base helps, but you still have to balance the rise yourself
+    state.leanVel -= state.lean * state.solidesa * 1.1 * dt;
 
     const control = 2.1;
     if (input.left) state.leanVel -= control * dt;
@@ -530,10 +530,9 @@
   // ---- Building phase: a STACKING game. Each base layer slides sideways; tap to
   // drop it where it is. The better aligned with the one below, the solider the base.
   function baseLayers(c) {
-    const num = c.floors.length + 1;
     const L = ["la pinya"];
-    if (num >= 7) L.push("el folre");
-    if (num >= 9) L.push("les manilles");
+    if (c.folre) L.push("el folre");
+    if (c.manilles) L.push("les manilles");
     L.push("els quarts");
     return L;
   }
@@ -545,7 +544,7 @@
       layers: layers, li: 0, pieces: [],
       prevX: W / 2, x: W * 0.16, dir: 1,
       margL: W * 0.16, margR: W * 0.84,
-      speed: W * (0.4 + (curCastell.diff || 1) * 0.16), // px/s, faster on harder castells
+      speed: W * (0.62 + (curCastell.diff || 1) * 0.28), // px/s, faster on harder castells
       sumAbs: 0, sumOff: 0,
     };
   }
