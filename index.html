@@ -27,7 +27,9 @@
   .ctrl span { font-size: 46px; color: rgba(40,40,40,.25); user-select: none; transition: color .08s, transform .08s; }
   .ctrl.active span { color: rgba(40,40,40,.65); transform: scale(.86); }
 
-  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; pointer-events: auto; background: rgba(207,227,238,.94); }
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; pointer-events: auto; background: rgba(207,227,238,.94); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #menuScreen { justify-content: flex-start; padding-top: 24px; padding-bottom: 24px; }
+  .castell-list { max-height: none; }
   .overlay.hidden { display: none; }
   .overlay h1 { font-size: clamp(30px,9vw,52px); color: #1c2a33; letter-spacing: -.02em; margin-bottom: 8px; }
   .overlay .sub { font-size: 15px; color: #4a5a66; max-width: 320px; line-height: 1.5; margin-bottom: 26px; }
@@ -589,6 +591,9 @@
     };
     state.geo = { levelH: levelH, groundY: groundY, cxBase: cxBase, baseY: baseY };
     const fyOf = (fi) => baseY - levelH * cum[fi];
+    // enxaneta, acotxador AND dosos are kids → smaller
+    const kidScale = (fi) => fi === F - 1 ? 0.6 : fi === F - 2 ? 0.78 : (!isPilar && fi === F - 3 && FLOORS[fi] >= 2 ? 0.88 : 1);
+    const yLift = (fi) => fi === F - 1 ? levelH * 0.14 : 0; // raise the enxaneta a bit (less hidden)
 
     // --- the castell has fallen: castellers tumble onto the pinya ---
     if (state.phase === PHASE.FALL && state.debris) {
@@ -629,14 +634,14 @@
     // standing or climbing, so the figure doesn't change while it moves.
     const drawFloorIll = (yc, fi, record) => {
       const w = FLOORS[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
-      const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac);
+      const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac), kid = kidScale(fi);
       const lay = layout(w).slice().sort((a, b) => (a.back === b.back) ? 0 : (a.back ? -1 : 1));
       for (const c of lay) {
-        const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
+        const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH - yLift(fi);
         const pose = poseFor(fi, c);
-        const drawn = pose && drawPose(pose.name, x, y, rot, pose.mirror, pose.kid);
-        const sc = (c.back ? 0.92 : 1) * (isEnx ? 0.65 : isAcot ? 0.8 : 1);
-        if (record) state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back, helmet: isEnx || isAcot, pose: drawn ? pose.name : null, mirror: pose ? pose.mirror : false, kid: pose ? pose.kid : 1 });
+        const drawn = pose && drawPose(pose.name, x, y, rot, pose.mirror, kid);
+        const sc = (c.back ? 0.92 : 1) * kid;
+        if (record) state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back, helmet: isEnx || isAcot, pose: drawn ? pose.name : null, mirror: pose ? pose.mirror : false, kid: kid });
         if (!drawn) {
           ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
           drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, 0, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot, spread: !isPilar && !isEnx && !isAcot, reach: reachU });

@@ -413,23 +413,25 @@ function renderMulti(floors, file){
   levelH=Math.min(64,(groundY-H*0.05)/(acc+0.9));
   const baseY=groundY-40+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
   const fy=[];let c2=0;for(let i=0;i<F;i++){fy[i]=baseY-levelH*c2;c2+=floorMul(i,F,isPilar);}
+  const kidScale=(fi)=> fi===F-1?0.6 : fi===F-2?0.78 : (!isPilar&&fi===F-3&&floors[fi]>=2?0.88:1);
+  const yLift=(fi)=> fi===F-1?levelH*0.14:0;
   for(let fi=F-1;fi>=0;fi--){
-    const w=floors[fi], isEnx=fi===F-1, isAcot=fi===F-2;
+    const w=floors[fi], isEnx=fi===F-1, isAcot=fi===F-2, kid=kidScale(fi);
     const lay=layout(w).slice().sort((a,b)=>(a.back===b.back)?0:(a.back?-1:1));
     for(const c of lay){
-      const x=cxBase+c.dx*colSpacing, y=fy[fi]+c.dy*levelH;
+      const x=cxBase+c.dx*colSpacing, y=fy[fi]+c.dy*levelH-yLift(fi);
       let done=false;
       if(isPilar){
-        if(isEnx) done=drawSp('enx',x,y,false,0.62);
-        else done=drawSp('pilar',x,y,false,isAcot?0.8:1);
-      } else if(isEnx){ done=drawSp('enx',x,y,false,0.62);
+        if(isEnx) done=drawSp('enx',x,y,false,kid);
+        else done=drawSp('pilar',x,y,false,kid);
+      } else if(isEnx){ done=drawSp('enx',x,y,false,kid);
       } else if(isAcot){ done=false; // vector crouch
       } else { // trunk/dosos
-        if(c.back) done=drawSp('esquena',x,y,false,1);
-        else done=drawSp('perfil',x,y,c.dx>0,1); // right side mirrored
+        if(c.back) done=drawSp('esquena',x,y,false,kid);
+        else done=drawSp('perfil',x,y,c.dx>0,kid); // right side mirrored
       }
       if(!done){
-        const sc=(c.back?0.92:1)*(isEnx?0.65:isAcot?0.8:1);
+        const sc=(c.back?0.92:1)*kid;
         ctx.save();ctx.translate(x,y);ctx.scale(sc,sc);
         drawCasteller(0,0,fi,isEnx,isEnx,1,false,0,{back:c.back,crouch:isAcot&&!isPilar,legsApart:isEnx&&!isPilar,helmet:isEnx||isAcot,spread:!isPilar&&!isEnx&&!isAcot,reach:colSpacing*0.92/levelH});
         ctx.restore();
