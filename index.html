@@ -274,6 +274,36 @@
     return { ensure: ensure, setOn: setOn, isOn: function () { return on; }, setTune: setTune };
   })();
 
+  // ---- Crowd sound effects (synthesised): an "oh!" gasp and applause ----
+  const SFX = (() => {
+    let ac = null;
+    function ctxx() { if (!ac) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; ac = new AC(); } if (ac.state === "suspended") ac.resume(); return ac; }
+    function noiseBuf(a, sec) { const len = Math.floor(a.sampleRate * sec); const b = a.createBuffer(1, len, a.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; return b; }
+    function applause(dur) {
+      const a = ctxx(); if (!a) return; const t0 = a.currentTime;
+      const src = a.createBufferSource(); src.buffer = noiseBuf(a, dur);
+      const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1900; bp.Q.value = 0.7;
+      const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.5, t0 + 0.12);
+      for (let tt = 0.15; tt < dur - 0.3; tt += 0.025 + Math.random() * 0.02) g.gain.linearRampToValueAtTime(0.28 + Math.random() * 0.28, t0 + tt);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+      src.connect(bp); bp.connect(g); g.connect(a.destination); src.start(t0); src.stop(t0 + dur);
+    }
+    function oh() {
+      const a = ctxx(); if (!a) return; const t0 = a.currentTime;
+      const src = a.createBufferSource(); src.buffer = noiseBuf(a, 0.75);
+      const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 3;
+      bp.frequency.setValueAtTime(720, t0); bp.frequency.exponentialRampToValueAtTime(380, t0 + 0.6);
+      const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.6, t0 + 0.12); g.gain.linearRampToValueAtTime(0.0001, t0 + 0.72);
+      src.connect(bp); bp.connect(g); g.connect(a.destination);
+      const o = a.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(190, t0); o.frequency.exponentialRampToValueAtTime(120, t0 + 0.6);
+      const lp = a.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 520;
+      const og = a.createGain(); og.gain.setValueAtTime(0.0001, t0); og.gain.linearRampToValueAtTime(0.2, t0 + 0.12); og.gain.linearRampToValueAtTime(0.0001, t0 + 0.72);
+      o.connect(lp); lp.connect(og); og.connect(a.destination); o.start(t0); o.stop(t0 + 0.72);
+    }
+    return { applause: applause, oh: oh };
+  })();
+
   const ORD = ["el segon", "el terç", "el quart", "el quint", "el sisè", "el setè", "el vuitè"];
   const ORDP = ["els segons", "els terços", "els quarts", "els quints", "els sisens", "els setens", "els vuitens"];
   let FLOORS = [1, 1, 1], F = 3; // current castell floors (widths) + count (set in newGame)
@@ -386,7 +416,7 @@
         if (state.climbProg >= 1) {
           state.climbing = false; state.climbProg = 0; state.placed++;
           state.shake = Math.min(1, state.shake + 0.3);
-          if (state.placed >= F) { state.phase = PHASE.ALETA; state.aletaT = 0; }
+          if (state.placed >= F) { state.phase = PHASE.ALETA; state.aletaT = 0; if (Sound.isOn()) SFX.applause(3.2); } // carregat → aplaudiments
           else state.settle = 0.45;
         }
       } else {
@@ -434,6 +464,7 @@
       rest: false,
     }));
     Sound.setTune("toc");
+    if (Sound.isOn()) { SFX.oh(); setTimeout(function () { SFX.applause(3); }, 750); } // llenya → "oh!" i després aplaudiment
     setTimeout(showEnd, 1700);
   }
   function updateDebris(dt) {
@@ -451,7 +482,7 @@
       }
     }
   }
-  function win() { state.phase = PHASE.WIN; state.result = { ok: true }; Sound.setTune("carregada"); setTimeout(showEnd, 700); }
+  function win() { state.phase = PHASE.WIN; state.result = { ok: true }; Sound.setTune("carregada"); if (Sound.isOn()) SFX.applause(4); setTimeout(showEnd, 700); }
 
   // ---- UI ----
   const balMark = document.getElementById("balMark");
@@ -594,6 +625,26 @@
       }
     };
 
+    // One illustrated floor (pose sprites; vector fallback per person). Same look
+    // standing or climbing, so the figure doesn't change while it moves.
+    const drawFloorIll = (yc, fi, record) => {
+      const w = FLOORS[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
+      const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac);
+      const lay = layout(w).slice().sort((a, b) => (a.back === b.back) ? 0 : (a.back ? -1 : 1));
+      for (const c of lay) {
+        const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
+        const pose = poseFor(fi, c);
+        const drawn = pose && drawPose(pose.name, x, y, rot, pose.mirror, pose.kid);
+        const sc = (c.back ? 0.92 : 1) * (isEnx ? 0.65 : isAcot ? 0.8 : 1);
+        if (record) state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back, helmet: isEnx || isAcot, pose: drawn ? pose.name : null, mirror: pose ? pose.mirror : false, kid: pose ? pose.kid : 1 });
+        if (!drawn) {
+          ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
+          drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, 0, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot, spread: !isPilar && !isEnx && !isAcot, reach: reachU });
+          ctx.restore();
+        }
+      }
+    };
+
     state.pos = []; // recorded standing positions (used to seed the fall)
     const p = state.climbProg;
     const bob = Math.sin(p * 6 * Math.PI * 2) * levelH * 0.04;
@@ -602,31 +653,14 @@
     if (state.climbing && state.placed < F) {
       const fi = state.placed, yStand = fyOf(fi);
       const yc = state.goingUp ? baseY + (yStand - baseY) * p : yStand + (baseY - yStand) * p;
-      drawFloor(yc + bob, fi, true, 0);
+      if (spriteOn) drawFloorIll(yc + bob, fi, false);
+      else drawFloor(yc + bob, fi, true, 0);
     }
 
     // Standing floors.
     if (spriteOn) {
-      // illustrated mode: each person gets its pose; drawn TOP→BOTTOM so heads stay visible.
-      for (let i = state.placed - 1; i >= 0; i--) {
-        const fi = i, w = FLOORS[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
-        const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac), yc = fyOf(fi);
-        const lay = layout(w).slice().sort((a,b)=>(a.back===b.back)?0:(a.back?-1:1));
-        for (const c of lay) {
-          const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
-          const pose = poseFor(fi, c);
-          const drawn = pose && drawPose(pose.name, x, y, rot, pose.mirror, pose.kid);
-          const sc = (c.back ? 0.92 : 1) * (isEnx ? 0.65 : isAcot ? 0.8 : 1);
-          state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back, helmet: isEnx || isAcot, pose: drawn ? pose.name : null, mirror: pose ? pose.mirror : false, kid: pose ? pose.kid : 1 });
-          if (!drawn) {
-            ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
-            drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, 0, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot, spread: !isPilar && !isEnx && !isAcot, reach: reachU });
-            ctx.restore();
-          }
-        }
-      }
+      for (let i = state.placed - 1; i >= 0; i--) drawFloorIll(fyOf(i), i, true);
     } else {
-      // vector mode: bodies first, then all heads on top so legs never cover a face.
       for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i), i, false, 1);
       for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i), i, false, 2);
     }
