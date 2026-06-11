@@ -125,9 +125,9 @@
   <button class="btn-ghost small" id="editCollaBtn">Editar la colla</button>
 </div>
 
-<!-- Reptes (castell chooser) -->
+<!-- Castell chooser (Reptes / Assaig) -->
 <div class="overlay hidden" id="reptesScreen">
-  <h1 style="margin:0 0 2px">Reptes</h1>
+  <h1 id="reptesTitle" style="margin:0 0 2px">Reptes</h1>
   <div class="sub" id="castellersTag" style="margin-bottom:14px">🧍 0 castellers</div>
   <div class="castell-list" id="castellList"></div>
   <button class="btn-ghost" id="reptesBack">Enrere</button>
@@ -384,6 +384,7 @@
       geo: { levelH: 46, groundY: 0, cxBase: 0, baseY: 0 },
       solidesa: 1,      // base quality (0..1) from the building phase
       baseOffsetX: 0,   // horizontal offset of the base you stacked (px from centre)
+      baseStack: null,  // placed base layers (pinya/folre/manilles) to keep on screen
       build: null,      // building-phase state
     };
   }
@@ -563,7 +564,9 @@
     const maxErr = W * 0.1, avgErr = b.sumAbs / b.layers.length;       // stricter: errors hurt
     state.solidesa = Math.max(0, Math.min(1, 1 - avgErr / maxErr));
     state.lean = Math.max(-0.7, Math.min(0.7, b.sumOff / (W * 0.16))); // a skewed base leans hard
-    state.baseOffsetX = Math.max(-W * 0.2, Math.min(W * 0.2, b.prevX - W / 2)); // rise from where you built
+    // the base layers below the trunk (pinya/folre/manilles) keep their placed x
+    state.baseStack = b.pieces.filter((p) => p.name !== "els quarts").map((p) => ({ name: p.name, x: p.x }));
+    state.baseOffsetX = Math.max(-W * 0.2, Math.min(W * 0.2, b.prevX - W / 2)); // trunk rises from the quarts
     state.build = null;
     state.phase = PHASE.UP;
   }
@@ -689,9 +692,17 @@
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
     cxBase = W / 2 + (state.baseOffsetX || 0) + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
     levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + 0.9));
-    const pinyaTop = groundY - 40;
-    baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the pinya
+    // base layers (pinya + folre + manilles) you stacked sit below the trunk
+    const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
+    const dyB = 34, nBelow = baseStack.length;
+    const pinyaTop = groundY - 40 - (nBelow - 1) * dyB; // raise the trunk above the base rings
+    baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the base
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
+    const drawBaseLayer = (name, x, y) => {
+      if (name === "el folre") drawPinya(x, y, pinyaR * 0.74);
+      else if (name === "les manilles") drawPinya(x, y, pinyaR * 0.54);
+      else drawPinya(x, y, pinyaR);
+    };
     const spriteOn = !!(sprite("tronc") || sprite("pilar"));   // illustrated art available?
     const colSpacing = levelH * (spriteOn ? 0.66 : 0.74);
     const reachU = colSpacing * 0.92 / levelH;
@@ -793,8 +804,9 @@
       for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i), i, false, 2);
     }
 
-    // Pinya drawn last (in front) so it hides the bottom feet.
-    drawPinya(cxBase, groundY, pinyaR);
+    // Base layers drawn last (in front): pinya at the bottom, then folre/manilles
+    // stacked at the very spots where you placed them.
+    for (let i = 0; i < baseStack.length; i++) drawBaseLayer(baseStack[i].name, baseStack[i].x, groundY - i * dyB);
   }
 
   function smooth(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
@@ -1100,13 +1112,15 @@
     homeScreen.classList.remove("hidden");
   }
 
-  function showReptes() {
+  function showReptes(mode) {
     screen = "menu"; Sound.stop();
-    document.getElementById("castellersTag").textContent = "🧍 " + save.castellers + " castellers";
+    const isAssaig = mode === "assaig";
+    document.getElementById("reptesTitle").textContent = isAssaig ? "Assaig" : "Reptes";
+    document.getElementById("castellersTag").textContent = isAssaig ? "Practica l'equilibri de qualsevol castell" : "🧍 " + save.castellers + " castellers";
     const list = document.getElementById("castellList");
     list.innerHTML = "";
     CASTELLS.forEach((c) => {
-      const locked = save.castellers < c.cost;
+      const locked = !isAssaig && save.castellers < c.cost;   // assaig: tot disponible
       const row = document.createElement("div");
       row.className = "castell " + (locked ? "lock" : "play");
       const best = save.best[c.id];
@@ -1115,8 +1129,8 @@
       row.innerHTML =
         '<div><div class="c-name">' + (locked ? "🔒 " : (save.done[c.id] ? "✓ " : "")) + castName(c) + '</div>' +
         '<div class="c-meta">' + meta + '</div></div>' +
-        '<div class="c-best">' + (locked ? "🧍 " + c.cost : (best ? best + " pts" : "Juga")) + '</div>';
-      if (!locked) row.addEventListener("click", () => begin(c, false));
+        '<div class="c-best">' + (isAssaig ? "Assaja" : (locked ? "🧍 " + c.cost : (best ? best + " pts" : "Juga"))) + '</div>';
+      if (!locked) row.addEventListener("click", () => begin(c, isAssaig));
       list.appendChild(row);
     });
     hideScreens();
@@ -1179,8 +1193,8 @@
     showHome();
   });
   document.getElementById("editCollaBtn").addEventListener("click", showCreator);
-  document.getElementById("reptesBtn").addEventListener("click", showReptes);
-  document.getElementById("assaigBtn").addEventListener("click", () => begin(CASTELLS[0], true));
+  document.getElementById("reptesBtn").addEventListener("click", () => showReptes("repte"));
+  document.getElementById("assaigBtn").addEventListener("click", () => showReptes("assaig"));
   document.getElementById("capBtn").addEventListener("click", showCap);
   document.getElementById("reptesBack").addEventListener("click", showHome);
   document.getElementById("capBack").addEventListener("click", showHome);
