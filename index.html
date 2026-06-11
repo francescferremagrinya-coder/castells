@@ -383,6 +383,7 @@
       fallT: 0,
       geo: { levelH: 46, groundY: 0, cxBase: 0, baseY: 0 },
       solidesa: 1,      // base quality (0..1) from the building phase
+      baseOffsetX: 0,   // horizontal offset of the base you stacked (px from centre)
       build: null,      // building-phase state
     };
   }
@@ -559,9 +560,10 @@
   }
   function finishBuild() {
     const b = state.build;
-    const maxErr = W * 0.14, avgErr = b.sumAbs / b.layers.length;
+    const maxErr = W * 0.1, avgErr = b.sumAbs / b.layers.length;       // stricter: errors hurt
     state.solidesa = Math.max(0, Math.min(1, 1 - avgErr / maxErr));
-    state.lean = Math.max(-0.5, Math.min(0.5, b.sumOff / (W * 0.22))); // a skewed base starts leaning
+    state.lean = Math.max(-0.7, Math.min(0.7, b.sumOff / (W * 0.16))); // a skewed base leans hard
+    state.baseOffsetX = Math.max(-W * 0.2, Math.min(W * 0.2, b.prevX - W / 2)); // rise from where you built
     state.build = null;
     state.phase = PHASE.UP;
   }
@@ -654,7 +656,7 @@
       const mW = Math.max.apply(null, FLOORS);
       const pr = Math.min(W * 0.46, 120 + mW * 48);
       const b = state.build;
-      const dy = 24;                                  // vertical step per stacked layer
+      const dy = 44;                                  // vertical step per stacked layer
       const yOf = (i) => groundY - i * dy;            // layer i sits this high
       const drawLayer = (name, x, y) => {
         if (name === "el folre") drawPinya(x, y, pr * 0.74);
@@ -685,7 +687,7 @@
     const cum = []; let acc = 0; for (let i = 0; i < F; i++) { cum[i] = acc; acc += floorMul(i, isPilar); }
     const totalCum = acc;
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
-    cxBase = W / 2 + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
+    cxBase = W / 2 + (state.baseOffsetX || 0) + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
     levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + 0.9));
     const pinyaTop = groundY - 40;
     baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the pinya
