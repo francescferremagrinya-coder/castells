@@ -171,25 +171,36 @@
   }
   function setShirt(hex) { COLLA.shirt = hex; COLLA.shirtDark = darken(hex, 0.8); SPR.cache = {}; }
 
-  // ---- Illustrated sprites (optional). Falls back to the vector figure. ----
-  // The tronc art has its shirt/mocador in red; we recolour that red to the colla.
-  const SPR = { tronc: null, cache: {}, geo: { feetY: 1351, headY: 66, cx: 513, w: 1024, h: 1536, shoulderY: 351 } };
+  // ---- Illustrated sprites (optional, multi-pose). Falls back to the vector figure. ----
+  // Each pose PNG has its shirt/mocador in red; we recolour that red to the colla.
+  const SPR = {
+    imgs: {}, cache: {},
+    files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar" },
+    geo: {
+      tronc: { feetY: 1351, headY: 66, cx: 511 }, esquena: { feetY: 1353, headY: 67, cx: 513 },
+      perfil: { feetY: 1368, headY: 177, cx: 359 }, pilar: { feetY: 1452, headY: 62, cx: 513 },
+      enx: { feetY: 1421, headY: 52, cx: 522 },
+    },
+  };
   function loadSprites() {
-    const img = new Image();
-    img.onload = () => { SPR.tronc = img; SPR.cache = {}; };
-    img.onerror = () => { SPR.tronc = null; };
-    img.src = "assets/casteller_tronc.png";
+    for (const k in SPR.files) {
+      (function (key) {
+        const img = new Image();
+        img.onload = () => { SPR.imgs[key] = img; SPR.cache = {}; };
+        img.src = "assets/" + SPR.files[key] + ".png";
+      })(k);
+    }
   }
   function rgb2hsv(r, g, b) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), df = mx - mn; let h = 0; if (df) { if (mx === r) h = ((g - b) / df) % 6; else if (mx === g) h = (b - r) / df + 2; else h = (r - g) / df + 4; h *= 60; if (h < 0) h += 360; } return [h, mx ? df / mx : 0, mx]; }
   function hsv2rgb(h, s, v) { const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c; let r, g, b; if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; } else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; } else if (h < 300) { r = x; g = 0; b = c; } else { r = c; g = 0; b = x; } return [(r + m) * 255, (g + m) * 255, (b + m) * 255]; }
-  // Returns an offscreen canvas of the tronc sprite recoloured to the current colla.
-  function troncSprite() {
-    if (!SPR.tronc) return null;
-    const key = COLLA.shirt;
+  // Recoloured offscreen canvas of pose `name` for the current colla (cached).
+  function sprite(name) {
+    const img = SPR.imgs[name]; if (!img) return null;
+    const key = name + "|" + COLLA.shirt;
     if (SPR.cache[key]) return SPR.cache[key];
-    const W2 = SPR.tronc.naturalWidth, H2 = SPR.tronc.naturalHeight;
+    const W2 = img.naturalWidth, H2 = img.naturalHeight;
     const c = document.createElement("canvas"); c.width = W2; c.height = H2;
-    const x = c.getContext("2d"); x.drawImage(SPR.tronc, 0, 0);
+    const x = c.getContext("2d"); x.drawImage(img, 0, 0);
     let id; try { id = x.getImageData(0, 0, W2, H2); } catch (e) { return null; }
     const d = id.data, th = rgb2hsv(parseInt(COLLA.shirt.slice(1, 3), 16), parseInt(COLLA.shirt.slice(3, 5), 16), parseInt(COLLA.shirt.slice(5, 7), 16))[0];
     for (let i = 0; i < d.length; i += 4) {
@@ -243,8 +254,8 @@
       if (!on) return;
       if (!ready) {
         try {
-          pujant = new Audio("assets/audio_pujant.mp3"); pujant.loop = true; pujant.volume = 0.55;
-          carregada = new Audio("assets/audio_carregada.mp3"); carregada.volume = 0.85;
+          pujant = new Audio("assets/audio_pujant.mp3"); pujant.loop = true; pujant.volume = 0.55; pujant.playbackRate = 1.45;
+          carregada = new Audio("assets/audio_carregada.mp3"); carregada.volume = 0.85; carregada.loop = true; carregada.playbackRate = 1.4;
           ready = true;
         } catch (e) { return; }
       }
@@ -387,7 +398,7 @@
       }
     } else if (state.phase === PHASE.ALETA) {
       state.aletaT += dt;
-      if (state.aletaT > 1.5) { state.phase = PHASE.DOWN; state.goingUp = false; state.settle = 0.4; Sound.setTune("sortida"); }
+      if (state.aletaT > 1.5) { state.phase = PHASE.DOWN; state.goingUp = false; state.settle = 0.4; }
     } else if (state.phase === PHASE.DOWN) {
       if (state.climbing) {
         // the detached casteller clambers all the way down to the pinya
@@ -525,14 +536,25 @@
     const pinyaTop = groundY - 40;
     baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the pinya
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
-    const spr = troncSprite();                 // illustrated tronc (recoloured) or null
-    const colSpacing = levelH * (spr ? 0.62 : 0.74);
+    const spriteOn = !!(sprite("tronc") || sprite("pilar"));   // illustrated art available?
+    const colSpacing = levelH * (spriteOn ? 0.66 : 0.74);
     const reachU = colSpacing * 0.92 / levelH;
-    const spriteScale = levelH / (SPR.geo.feetY - SPR.geo.shoulderY);
-    const drawSprite = (x, y, rot) => {
-      ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
-      ctx.drawImage(spr, -SPR.geo.cx * spriteScale, -SPR.geo.feetY * spriteScale, SPR.geo.w * spriteScale, SPR.geo.h * spriteScale);
-      ctx.restore();
+    // Draw an illustrated pose (recoloured) anchored at the feet; returns false if missing.
+    const drawPose = (name, x, y, rot, mirror, kid) => {
+      const cv = sprite(name), g = SPR.geo[name]; if (!cv || !g) return false;
+      const sc = (1.3 * levelH / (g.feetY - g.headY)) * (kid || 1);
+      ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot); if (mirror) ctx.scale(-1, 1);
+      ctx.drawImage(cv, -g.cx * sc, -g.feetY * sc, cv.width * sc, cv.height * sc);
+      ctx.restore(); return true;
+    };
+    // Which pose for a given floor/person (or null → vector fallback).
+    const poseFor = (fi, c) => {
+      const isEnx = fi === F - 1, isAcot = fi === F - 2;
+      if (isEnx) return { name: "enx", mirror: false, kid: 0.62 };
+      if (isPilar) return { name: "pilar", mirror: false, kid: isAcot ? 0.8 : 1 };
+      if (isAcot) return null; // wide acotxador → vector crouch (no sprite yet)
+      if (c.back) return { name: "esquena", mirror: false, kid: 1 };
+      return { name: "perfil", mirror: c.dx > 0, kid: 1 };
     };
     state.geo = { levelH: levelH, groundY: groundY, cxBase: cxBase, baseY: baseY };
     const fyOf = (fi) => baseY - levelH * cum[fi];
@@ -542,7 +564,7 @@
       drawPinya(cxBase, groundY, pinyaR);
       const ds = state.debris.slice().sort((a, b) => a.y - b.y);
       for (const d of ds) {
-        if (d.sprite && spr) { drawSprite(d.x, d.y, d.rot); continue; }
+        if (d.pose && drawPose(d.pose, d.x, d.y, d.rot, d.mirror, d.kid)) continue;
         ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.rot); ctx.scale(d.sc || 1, d.sc || 1);
         drawCasteller(0, 0, d.idx, d.isTop, false, 1, false, 0, { back: d.back, helmet: d.helmet });
         ctx.restore();
@@ -584,23 +606,21 @@
     }
 
     // Standing floors.
-    if (spr) {
-      // illustrated mode: draw whole figures TOP→BOTTOM so heads stay visible.
+    if (spriteOn) {
+      // illustrated mode: each person gets its pose; drawn TOP→BOTTOM so heads stay visible.
       for (let i = state.placed - 1; i >= 0; i--) {
         const fi = i, w = FLOORS[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
-        const kid = isEnx ? 0.65 : (isAcot ? 0.8 : 1);
-        const spread = !isPilar && !isEnx && !isAcot;
         const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac), yc = fyOf(fi);
         const lay = layout(w).slice().sort((a, b) => a.dy - b.dy);
         for (const c of lay) {
           const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
-          const eligible = spread && !c.back;       // front adults use the sprite
-          const sc = (c.back ? 0.92 : 1) * kid;
-          state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back, helmet: isEnx || isAcot, sprite: eligible });
-          if (eligible) { drawSprite(x, y, rot); }
-          else {
+          const pose = poseFor(fi, c);
+          const drawn = pose && drawPose(pose.name, x, y, rot, pose.mirror, pose.kid);
+          const sc = (c.back ? 0.92 : 1) * (isEnx ? 0.65 : isAcot ? 0.8 : 1);
+          state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back, helmet: isEnx || isAcot, pose: drawn ? pose.name : null, mirror: pose ? pose.mirror : false, kid: pose ? pose.kid : 1 });
+          if (!drawn) {
             ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
-            drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, 0, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot, spread: spread, reach: reachU });
+            drawCasteller(0, 0, fi, isEnx, isEnx, 1, false, 0, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot, spread: !isPilar && !isEnx && !isAcot, reach: reachU });
             ctx.restore();
           }
         }
