@@ -28,7 +28,7 @@
   .ctrl.active span { color: rgba(40,40,40,.65); transform: scale(.86); }
 
   .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; pointer-events: auto; background: rgba(207,227,238,.94); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  #menuScreen { justify-content: flex-start; padding-top: 24px; padding-bottom: 24px; }
+  #reptesScreen { justify-content: flex-start; padding-top: 24px; padding-bottom: 24px; }
   .castell-list { max-height: none; }
   .overlay.hidden { display: none; }
   .overlay h1 { font-size: clamp(30px,9vw,52px); color: #1c2a33; letter-spacing: -.02em; margin-bottom: 8px; }
@@ -51,6 +51,10 @@
   .colla-tag { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #2c3942; margin-bottom: 6px; }
   .colla-dot { width: 16px; height: 16px; border-radius: 50%; background: #2f6f8f; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
   .castell-list { display: flex; flex-direction: column; gap: 10px; width: min(90%,360px); margin-bottom: 22px; pointer-events: auto; }
+  .principis { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #6b7a84; font-weight: 700; margin: 10px 0 24px; }
+  .home-btns { display: flex; flex-direction: column; gap: 12px; width: min(82%,300px); margin-bottom: 16px; }
+  .home-btns .btn, .home-btns .btn-ghost { width: 100%; }
+  .btn-ghost.small { font-size: 13px; padding: 8px 18px; }
   .castell { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 2px solid #dfe6ea; border-radius: 14px; padding: 14px 16px; cursor: pointer; transition: transform .08s; }
   .castell.play:active { transform: scale(.98); }
   .castell.lock { cursor: default; }
@@ -100,8 +104,8 @@
   <button class="btn" id="foundBtn">Fundar la colla</button>
 </div>
 
-<!-- Main menu -->
-<div class="overlay hidden" id="menuScreen">
+<!-- Home menu -->
+<div class="overlay hidden" id="homeScreen">
   <div class="colla-tag"><span class="colla-dot" id="collaDot"></span><span id="collaNameLbl">La meva colla</span></div>
   <svg class="pv" viewBox="0 0 60 90" xmlns="http://www.w3.org/2000/svg">
     <rect x="22" y="58" width="6" height="24" rx="3" fill="#f1ece0" stroke="#1b2730" stroke-width="1.5"/>
@@ -110,10 +114,29 @@
     <rect x="15" y="50" width="30" height="11" rx="3" fill="#15212a"/>
     <circle cx="30" cy="22" r="10" fill="#e9c19a" stroke="#1b2730" stroke-width="1.6"/>
   </svg>
-  <h1 style="margin:6px 0 2px">Castells</h1>
-  <div class="sub" style="margin-bottom:16px">Tria el repte. Descarrega'l per guanyar punts.</div>
+  <div class="principis">Valor · Força · Equilibri · Seny</div>
+  <div class="home-btns">
+    <button class="btn" id="reptesBtn">Reptes</button>
+    <button class="btn" id="assaigBtn">Assaig</button>
+    <button class="btn-ghost" id="capBtn">Cap de colla</button>
+  </div>
+  <button class="btn-ghost small" id="editCollaBtn">Editar la colla</button>
+</div>
+
+<!-- Reptes (castell chooser) -->
+<div class="overlay hidden" id="reptesScreen">
+  <h1 style="margin:0 0 2px">Reptes</h1>
+  <div class="sub" id="castellersTag" style="margin-bottom:14px">🧍 0 castellers</div>
   <div class="castell-list" id="castellList"></div>
-  <button class="btn-ghost" id="editCollaBtn">Editar la colla</button>
+  <button class="btn-ghost" id="reptesBack">Enrere</button>
+</div>
+
+<!-- Cap de colla (teaser) -->
+<div class="overlay hidden" id="capScreen">
+  <div class="big">🎖️</div>
+  <h1>Cap de colla</h1>
+  <div class="sub">Properament: dirigeix la teva colla tota una <b>temporada</b> — diades, fitxar castellers i perseguir el somni del castell de 9.</div>
+  <button class="btn" id="capBack">Enrere</button>
 </div>
 
 <!-- Result -->
@@ -303,7 +326,13 @@
       const og = a.createGain(); og.gain.setValueAtTime(0.0001, t0); og.gain.linearRampToValueAtTime(0.2, t0 + 0.12); og.gain.linearRampToValueAtTime(0.0001, t0 + 0.72);
       o.connect(lp); lp.connect(og); og.connect(a.destination); o.start(t0); o.stop(t0 + 0.72);
     }
-    return { applause: applause, oh: oh };
+    function tap(q) { // placing click; higher pitch = better placement
+      const a = ctxx(); if (!a) return; const t0 = a.currentTime;
+      const o = a.createOscillator(); o.type = "triangle"; o.frequency.value = 300 + (q || 0) * 520;
+      const g = a.createGain(); g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(0.3, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+      o.connect(g); g.connect(a.destination); o.start(t0); o.stop(t0 + 0.13);
+    }
+    return { applause: applause, oh: oh, tap: tap };
   })();
 
   const ORD = ["el segon", "el terç", "el quart", "el quint", "el sisè", "el setè", "el vuitè"];
@@ -325,7 +354,7 @@
     return [{ dx: -0.34, dy: 0, back: true }, { dx: 0.34, dy: 0, back: true }, { dx: -0.72, dy: 0, back: false }, { dx: 0, dy: 0, back: false }, { dx: 0.72, dy: 0, back: false }].slice(0, w);
   }
   const floorMul = (fi, isPilar) => fi === F - 2 ? (isPilar ? 0.72 : 0.56) : 1; // acotxador floor
-  const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5 };
+  const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5, BUILD: 6 };
 
   let state = null;
 
@@ -350,6 +379,8 @@
       debris: null,     // tumbling castellers when it falls
       fallT: 0,
       geo: { levelH: 46, groundY: 0, cxBase: 0, baseY: 0 },
+      solidesa: 1,      // base quality (0..1) from the building phase
+      build: null,      // building-phase state
     };
   }
 
@@ -358,7 +389,7 @@
   const ctrlL = document.getElementById("ctrlL");
   const ctrlR = document.getElementById("ctrlR");
   function bind(el, side) {
-    const on = (e) => { e.preventDefault(); input[side] = true; el.classList.add("active"); };
+    const on = (e) => { e.preventDefault(); if (state && state.phase === PHASE.BUILD) { buildTap(); return; } input[side] = true; el.classList.add("active"); };
     const off = (e) => { e.preventDefault(); input[side] = false; el.classList.remove("active"); };
     el.addEventListener("pointerdown", on);
     el.addEventListener("pointerup", off);
@@ -367,6 +398,7 @@
   }
   bind(ctrlL, "left"); bind(ctrlR, "right");
   window.addEventListener("keydown", (e) => {
+    if (state && state.phase === PHASE.BUILD && (e.key === " " || e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp")) { e.preventDefault(); buildTap(); return; }
     if (e.key === "ArrowLeft" || e.key === "a") input.left = true;
     if (e.key === "ArrowRight" || e.key === "d") input.right = true;
   });
@@ -381,7 +413,8 @@
     const climbFactor = state.climbing ? 1.45 : 1;
     const fatigueFactor = 1 + (1 - state.fatigue) * 0.6;
     const castFactor = curCastell.diff || 1;
-    return heightFactor * climbFactor * fatigueFactor * castFactor;
+    const baseFactor = 1 - 0.5 * state.solidesa;       // a solid base makes it steadier
+    return heightFactor * climbFactor * fatigueFactor * castFactor * baseFactor;
   }
 
   let noiseT = 0;
@@ -389,6 +422,7 @@
     if (!state) return;
     state.time += dt;
     state.shake *= Math.pow(0.001, dt);
+    if (state.phase === PHASE.BUILD) { updateBuild(dt); return; }
     if (state.phase === PHASE.FALL) { updateDebris(dt); return; }
     if (state.phase === PHASE.READY || state.phase === PHASE.WIN) return;
 
@@ -398,6 +432,8 @@
     const wobble = Math.sin(noiseT * 2.1) * 0.5 + Math.sin(noiseT * 5.3 + 1.3) * 0.3 + (Math.random() - 0.5) * 0.5;
     state.leanVel += wobble * diff * 0.34 * dt;
     state.leanVel += state.lean * diff * 1.2 * dt;     // instability (grows with height)
+    // a good base holds itself up (the castell "puja sol"); player input only assists
+    state.leanVel -= state.lean * state.solidesa * 2.4 * dt;
 
     const control = 2.1;
     if (input.left) state.leanVel -= control * dt;
@@ -486,6 +522,55 @@
   }
   function win() { state.phase = PHASE.WIN; state.result = { ok: true }; Sound.setTune("carregada"); if (Sound.isOn()) SFX.applause(4); setTimeout(showEnd, 700); }
 
+  // ---- Building phase (the constructor): place the base under time pressure ----
+  function baseLayers(c) {
+    const num = c.floors.length + 1;
+    const L = ["la pinya"];
+    if (num >= 7) L.push("el folre");
+    if (num >= 9) L.push("les manilles");
+    L.push("els primers pisos");
+    return L;
+  }
+  function startBuild() {
+    const layers = baseLayers(curCastell);
+    state.phase = PHASE.BUILD;
+    state.solidesa = 0;
+    state.build = {
+      layers: layers, li: 0, need: 2, cur: [], scores: [],
+      marker: 0, dir: 1, t: 4, tmax: 4,
+      speed: 0.85 + (curCastell.diff || 1) * 0.45, // sweep speed grows with difficulty
+    };
+  }
+  function lockBuild() {
+    const b = state.build; if (!b) return;
+    const sc = Math.max(0, 1 - Math.abs(b.marker - 0.5) * 2);
+    b.cur.push(sc);
+    if (Sound.isOn()) SFX.tap(sc);
+    if (b.cur.length >= b.need) {
+      b.scores.push(b.cur.reduce((a, x) => a + x, 0) / b.cur.length);
+      b.cur = []; b.li++;
+      if (b.li >= b.layers.length) { finishBuild(); return; }
+      b.t = b.tmax; b.marker = 0; b.dir = 1;
+    } else {
+      b.marker = 0; b.dir = 1; b.t = Math.max(b.t, 1.6);
+    }
+  }
+  function finishBuild() {
+    const b = state.build;
+    state.solidesa = b.scores.length ? b.scores.reduce((a, x) => a + x, 0) / b.scores.length : 0.6;
+    state.build = null;
+    state.phase = PHASE.UP;
+  }
+  function buildTap() { if (state && state.phase === PHASE.BUILD) lockBuild(); }
+  function updateBuild(dt) {
+    const b = state.build; if (!b) return;
+    b.t -= dt;
+    b.marker += b.dir * b.speed * dt;
+    if (b.marker > 1) { b.marker = 1; b.dir = -1; }
+    if (b.marker < 0) { b.marker = 0; b.dir = 1; }
+    if (b.t <= 0) lockBuild();
+  }
+
   // ---- UI ----
   const balMark = document.getElementById("balMark");
   const fatFill = document.getElementById("fatFill");
@@ -555,9 +640,40 @@
 
     if (screen !== "game" || !state) return;
 
+    if (barsEl) barsEl.style.display = (state.phase === PHASE.BUILD) ? "none" : "";
+
     // soft shadow under the pinya
     ctx.fillStyle = "rgba(60,54,44,.12)";
     ctx.beginPath(); ctx.ellipse(W / 2, groundY + 8, Math.min(W * 0.42, 215), 15, 0, 0, Math.PI * 2); ctx.fill();
+
+    // --- building phase: show the pinya + the timing bar ---
+    if (state.phase === PHASE.BUILD) {
+      statusEl.textContent = "";
+      const mW = Math.max.apply(null, FLOORS);
+      drawPinya(W / 2, groundY, Math.min(W * 0.46, 120 + mW * 48));
+      const b = state.build;
+      const bx0 = W * 0.12, bw = W * 0.76, by = H * 0.4, bh = 26;
+      // track
+      ctx.fillStyle = "#e7eef3"; ctx.beginPath(); roundRect(bx0, by, bw, bh, 13); ctx.fill();
+      // green sweet-spot zone (smaller = harder; shrinks with difficulty)
+      const zw = bw * (0.2 - Math.min(0.09, (curCastell.diff || 1) * 0.04));
+      ctx.fillStyle = "rgba(76,160,90,.55)"; ctx.fillRect(W / 2 - zw / 2, by, zw, bh);
+      // marker
+      const mx = bx0 + b.marker * bw;
+      ctx.fillStyle = "#1c2a33"; ctx.beginPath(); roundRect(mx - 4, by - 5, 8, bh + 10, 4); ctx.fill();
+      // countdown
+      ctx.fillStyle = "#d8d1c2"; ctx.beginPath(); roundRect(bx0, by + bh + 10, bw, 8, 4); ctx.fill();
+      ctx.fillStyle = "#c94b2e"; ctx.beginPath(); roundRect(bx0, by + bh + 10, bw * Math.max(0, b.t / b.tmax), 8, 4); ctx.fill();
+      // texts
+      ctx.fillStyle = "#1c2a33"; ctx.textAlign = "center";
+      ctx.font = "700 20px -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.fillText("Munta " + b.layers[b.li], W / 2, by - 24);
+      ctx.font = "600 13px -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.fillStyle = "#4a5a66";
+      ctx.fillText("TOCA quan el marcador sigui al verd  ·  " + (b.cur.length + 1) + "/" + b.need, W / 2, by - 6);
+      ctx.textAlign = "start";
+      return;
+    }
 
     const maxW = Math.max.apply(null, FLOORS), isPilar = maxW === 1;
     // cumulative vertical position of each floor (the pom is compressed)
@@ -905,9 +1021,16 @@
 
   // ---- Screens ----
   const uiEl = document.getElementById("ui");
+  const barsEl = document.querySelector(".bars");
   const creatorScreen = document.getElementById("creatorScreen");
-  const menuScreen = document.getElementById("menuScreen");
+  const homeScreen = document.getElementById("homeScreen");
+  const reptesScreen = document.getElementById("reptesScreen");
+  const capScreen = document.getElementById("capScreen");
   const endScreen = document.getElementById("endScreen");
+  function hideScreens() {
+    uiEl.style.display = "none";
+    [creatorScreen, homeScreen, reptesScreen, capScreen, endScreen].forEach((s) => s.classList.add("hidden"));
+  }
   const collaNameInput = document.getElementById("collaName");
   const swatchesEl = document.getElementById("swatches");
   let pickedColor = COLLA.shirt;
@@ -941,31 +1064,23 @@
     pickedColor = COLLA.shirt;
     collaNameInput.value = COLLA.name === "La meva colla" && !save.colla ? "" : COLLA.name;
     markSwatch(); applyPreviewColor();
-    uiEl.style.display = "none";
+    hideScreens();
     creatorScreen.classList.remove("hidden");
-    menuScreen.classList.add("hidden");
-    endScreen.classList.add("hidden");
   }
 
-  function showMenu() {
+  function showHome() {
     screen = "menu";
     document.getElementById("collaNameLbl").textContent = COLLA.name;
     applyPreviewColor();
-    // (Re)build castell list.
+    hideScreens();
+    homeScreen.classList.remove("hidden");
+  }
+
+  function showReptes() {
+    screen = "menu";
+    document.getElementById("castellersTag").textContent = "🧍 " + save.castellers + " castellers";
     const list = document.getElementById("castellList");
-    document.getElementById("collaNameLbl").textContent = COLLA.name + "  ·  🧍 " + save.castellers + " castellers";
     list.innerHTML = "";
-
-    // ASSAIG — practice freely and earn castellers (no cost)
-    const assaig = document.createElement("div");
-    assaig.className = "castell play assaig-row";
-    assaig.innerHTML =
-      '<div><div class="c-name">🛠️ Assaig</div>' +
-      '<div class="c-meta">Practica i guanya castellers</div></div>' +
-      '<div class="c-best">Entrena</div>';
-    assaig.addEventListener("click", () => begin(CASTELLS[0], true));
-    list.appendChild(assaig);
-
     CASTELLS.forEach((c) => {
       const locked = save.castellers < c.cost;
       const row = document.createElement("div");
@@ -980,21 +1095,21 @@
       if (!locked) row.addEventListener("click", () => begin(c, false));
       list.appendChild(row);
     });
-    uiEl.style.display = "none";
-    menuScreen.classList.remove("hidden");
-    creatorScreen.classList.add("hidden");
-    endScreen.classList.add("hidden");
+    hideScreens();
+    reptesScreen.classList.remove("hidden");
   }
+
+  function showCap() { screen = "menu"; hideScreens(); capScreen.classList.remove("hidden"); }
 
   function begin(castell, assaig) {
     curCastell = castell || curCastell;
-    newGame(); state.phase = PHASE.UP; state.assaig = !!assaig;
+    newGame();
+    state.assaig = !!assaig;
+    startBuild();                 // the constructor: build the base first
     Sound.setTune("toc"); Sound.ensure();
     screen = "game";
+    hideScreens();
     uiEl.style.display = "";
-    creatorScreen.classList.add("hidden");
-    menuScreen.classList.add("hidden");
-    endScreen.classList.add("hidden");
   }
 
   function showEnd() {
@@ -1025,7 +1140,7 @@
     if (!state.assaig && pts > (save.best[curCastell.id] || 0)) save.best[curCastell.id] = pts;
     save.castellers += earned;
     persist();
-    uiEl.style.display = "none";
+    hideScreens();
     endScreen.classList.remove("hidden");
   }
 
@@ -1036,11 +1151,16 @@
     setShirt(pickedColor);
     save.colla = { name: COLLA.name, color: COLLA.shirt };
     persist();
-    showMenu();
+    showHome();
   });
   document.getElementById("editCollaBtn").addEventListener("click", showCreator);
-  document.getElementById("menuBtn").addEventListener("click", showMenu);
-  document.getElementById("retryBtn").addEventListener("click", () => begin(curCastell));
+  document.getElementById("reptesBtn").addEventListener("click", showReptes);
+  document.getElementById("assaigBtn").addEventListener("click", () => begin(CASTELLS[0], true));
+  document.getElementById("capBtn").addEventListener("click", showCap);
+  document.getElementById("reptesBack").addEventListener("click", showHome);
+  document.getElementById("capBack").addEventListener("click", showHome);
+  document.getElementById("menuBtn").addEventListener("click", showHome);
+  document.getElementById("retryBtn").addEventListener("click", () => begin(curCastell, state.assaig));
 
   const soundBtn = document.getElementById("soundBtn");
   soundBtn.addEventListener("click", () => {
@@ -1052,7 +1172,7 @@
   // ---- Boot ----
   loadSprites();
   loadSave();
-  if (save.colla) { COLLA.name = save.colla.name; setShirt(save.colla.color); showMenu(); }
+  if (save.colla) { COLLA.name = save.colla.name; setShirt(save.colla.color); showHome(); }
   else { showCreator(); }
 })();
 </script>
