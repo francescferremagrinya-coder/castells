@@ -383,8 +383,10 @@
       fallT: 0,
       geo: { levelH: 46, groundY: 0, cxBase: 0, baseY: 0 },
       solidesa: 1,      // base quality (0..1) from the building phase
-      baseOffsetX: 0,   // horizontal offset of the base you stacked (px from centre)
-      baseStack: null,  // placed base layers (pinya/folre/manilles) to keep on screen
+      baseOffsetX: 0,   // horizontal offset of the top of the base you stacked
+      baseStack: null,  // placed reinforcement rings (pinya/folre/manilles)
+      floorOffset: [],  // x offset of each manually-placed trunk floor
+      floor0: 1,        // first floor that rises automatically
       build: null,      // building-phase state
     };
   }
@@ -448,10 +450,14 @@
     state.lean += state.leanVel * dt;
 
     // Fatigue — tuned so a clean carregar+descarregar is achievable.
-    const drain = (0.015 + state.placed * 0.0035) * (state.phase === PHASE.UP ? 1 : 0.85);
+    const drain = (0.015 + state.placed * 0.0035) * (state.phase === PHASE.UP ? 1 : 0.85) * (state.assaig ? 0.25 : 1);
     state.fatigue -= drain * dt;
-    if (state.fatigue <= 0) { state.fatigue = 0; fall("Els castellers no han aguantat el pes."); return; }
-    if (Math.abs(state.lean) >= 1) { fall("Ha perdut l'equilibri."); return; }
+    if (state.assaig) {
+      state.lean = Math.max(-0.92, Math.min(0.92, state.lean)); // free mode: never falls
+    } else {
+      if (state.fatigue <= 0) { state.fatigue = 0; fall("Els castellers no han aguantat el pes."); return; }
+      if (Math.abs(state.lean) >= 1) { fall("Ha perdut l'equilibri."); return; }
+    }
 
     if (state.phase === PHASE.UP) {
       if (state.climbing) {
@@ -478,14 +484,14 @@
         state.climbProg += dt * 0.5;
         if (state.climbProg >= 1) {
           state.climbing = false; state.climbProg = 0;
-          if (state.placed <= 1) win();
+          if (state.placed <= state.floor0) win();
           else state.settle = 0.3;
         }
       } else {
         state.settle -= dt;
         if (state.settle <= 0 && Math.abs(state.lean) < 0.55) {
-          state.placed--;            // detach the current top, it starts descending
-          state.climbing = true; state.climbProg = 0;
+          if (state.placed <= state.floor0) { win(); }   // the base you built stays
+          else { state.placed--; state.climbing = true; state.climbProg = 0; }
         }
       }
     }
@@ -530,10 +536,15 @@
   // ---- Building phase: a STACKING game. Each base layer slides sideways; tap to
   // drop it where it is. The better aligned with the one below, the solider the base.
   function baseLayers(c) {
-    const L = ["la pinya"];
-    if (c.folre) L.push("el folre");
-    if (c.manilles) L.push("les manilles");
-    L.push("els quarts");
+    const isPilar = Math.max.apply(null, c.floors) === 1;
+    const pom = isPilar ? 1 : 3;                       // enxaneta (pilar) or dosos+acotxador+enxaneta
+    const lower = Math.max(1, c.floors.length - pom);  // trunk floors below the pom
+    const nFloors = Math.min(3, lower);                // place up to the quarts
+    const L = [{ name: "la pinya", type: "pinya" }];
+    if (c.folre) L.push({ name: "el folre", type: "folre" });
+    if (c.manilles) L.push({ name: "les manilles", type: "manilles" });
+    const tf = ["els segons", "els terços", "els quarts"];
+    for (let i = 0; i < nFloors; i++) L.push({ name: tf[i], type: "floor", fi: i });
     return L;
   }
   function startBuild() {
@@ -550,9 +561,10 @@
   }
   function lockBuild() {
     const b = state.build; if (!b) return;
+    const L = b.layers[b.li];
     const off = b.x - b.prevX;
     b.sumAbs += Math.abs(off); b.sumOff += off;
-    b.pieces.push({ name: b.layers[b.li], x: b.x });
+    b.pieces.push({ name: L.name, type: L.type, fi: L.fi, x: b.x });
     if (Sound.isOn()) SFX.tap(Math.max(0, 1 - Math.abs(off) / (W * 0.12)));
     b.prevX = b.x; b.li++;
     if (b.li >= b.layers.length) { finishBuild(); return; }
@@ -563,9 +575,14 @@
     const maxErr = W * 0.1, avgErr = b.sumAbs / b.layers.length;       // stricter: errors hurt
     state.solidesa = Math.max(0, Math.min(1, 1 - avgErr / maxErr));
     state.lean = Math.max(-0.7, Math.min(0.7, b.sumOff / (W * 0.16))); // a skewed base leans hard
-    // the base layers below the trunk (pinya/folre/manilles) keep their placed x
-    state.baseStack = b.pieces.filter((p) => p.name !== "els quarts").map((p) => ({ name: p.name, x: p.x }));
-    state.baseOffsetX = Math.max(-W * 0.2, Math.min(W * 0.2, b.prevX - W / 2)); // trunk rises from the quarts
+    // reinforcement rings (pinya/folre/manilles) keep their placed x; trunk floors
+    // become real floors at the offset where you dropped them
+    state.baseStack = b.pieces.filter((p) => p.type !== "floor").map((p) => ({ name: p.name, x: p.x }));
+    const fp = b.pieces.filter((p) => p.type === "floor");
+    state.floorOffset = fp.map((p) => Math.max(-W * 0.22, Math.min(W * 0.22, p.x - W / 2)));
+    state.floor0 = Math.max(1, fp.length);                     // first auto-rising floor index
+    state.placed = state.floor0;                               // the floors you built are already up
+    state.baseOffsetX = fp.length ? state.floorOffset[fp.length - 1] : Math.max(-W * 0.2, Math.min(W * 0.2, b.prevX - W / 2));
     state.build = null;
     state.phase = PHASE.UP;
   }
@@ -662,8 +679,10 @@
       const yOf = (i) => groundY - i * dy;            // layer i sits this high
       const drawLayer = (name, x, y) => {
         if (name === "el folre") drawPinya(x, y, pr * 0.74);
-        else if (name === "les manilles") drawPinya(x, y, pr * 0.54);
-        else if (name === "els quarts") drawPinya(x, y, pr * 0.38);
+        else if (name === "les manilles") drawPinya(x, y, pr * 0.6);
+        else if (name === "els segons") drawPinya(x, y, pr * 0.5);
+        else if (name === "els terços") drawPinya(x, y, pr * 0.42);
+        else if (name === "els quarts") drawPinya(x, y, pr * 0.36);
         else drawPinya(x, y, pr); // la pinya
       };
       // placed pieces
@@ -673,11 +692,11 @@
       ctx.beginPath(); ctx.moveTo(b.prevX, yOf(b.li) - dy); ctx.lineTo(b.prevX, yOf(b.li) + 24); ctx.stroke();
       ctx.setLineDash([]);
       // the sliding piece
-      drawLayer(b.layers[b.li], b.x, yOf(b.li));
+      drawLayer(b.layers[b.li].name, b.x, yOf(b.li));
       // text
       ctx.fillStyle = "#1c2a33"; ctx.textAlign = "center";
       ctx.font = "700 22px -apple-system, Segoe UI, Roboto, sans-serif";
-      ctx.fillText("Col·loca " + b.layers[b.li], W / 2, H * 0.2);
+      ctx.fillText("Col·loca " + b.layers[b.li].name, W / 2, H * 0.2);
       ctx.font = "600 14px -apple-system, Segoe UI, Roboto, sans-serif"; ctx.fillStyle = "#4a5a66";
       ctx.fillText("TOCA per deixar-la anar (centra-la bé!)", W / 2, H * 0.2 + 22);
       ctx.textAlign = "start";
@@ -724,6 +743,9 @@
     };
     state.geo = { levelH: levelH, groundY: groundY, cxBase: cxBase, baseY: baseY };
     const fyOf = (fi) => baseY - levelH * cum[fi];
+    // each floor's horizontal base: manually-placed floors stay where you dropped them
+    const f0 = state.floor0 || 1, fOff = state.floorOffset || [];
+    const cxFloor = (fi) => cxBase + ((fi < f0 && fOff[fi] !== undefined ? fOff[fi] : (state.baseOffsetX || 0)) - (state.baseOffsetX || 0));
     // enxaneta, acotxador AND dosos are kids → smaller
     const kidScale = (fi) => fi === F - 1 ? 0.6 : fi === F - 2 ? 0.78 : (!isPilar && fi === F - 3 && FLOORS[fi] >= 2 ? 0.88 : 1);
     const yLift = (fi) => fi === F - 1 ? levelH * 0.14 : 0; // raise the enxaneta a bit (less hidden)
@@ -755,7 +777,7 @@
       const lay = layout(w).slice().sort((a,b)=>(a.back===b.back)?0:(a.back?-1:1)); // back first
       for (const c of lay) {
         const sc = (c.back ? 0.92 : 1) * kid;
-        const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
+        const x = cxFloor(fi) + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
         if (part === 1 && !climbing) state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back, helmet: isEnx || isAcot });
         ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
         drawCasteller(0, 0, fi, isEnx, isEnx && !climbing, 1, climbing, part, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot, spread: spread, reach: reachU });
@@ -770,7 +792,7 @@
       const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac), kid = kidScale(fi);
       const lay = layout(w).slice().sort((a, b) => (a.back === b.back) ? 0 : (a.back ? -1 : 1));
       for (const c of lay) {
-        const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH - yLift(fi);
+        const x = cxFloor(fi) + xoff + c.dx * colSpacing, y = yc + c.dy * levelH - yLift(fi);
         const pose = poseFor(fi, c);
         const drawn = pose && drawPose(pose.name, x, y, rot, pose.mirror, kid);
         const sc = (c.back ? 0.92 : 1) * kid;
