@@ -177,9 +177,9 @@
     imgs: {}, cache: {},
     files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar" },
     geo: {
-      tronc: { feetY: 1351, headY: 66, cx: 511 }, esquena: { feetY: 1353, headY: 67, cx: 513 },
-      perfil: { feetY: 1368, headY: 177, cx: 359 }, pilar: { feetY: 1452, headY: 62, cx: 513 },
-      enx: { feetY: 1421, headY: 52, cx: 522 },
+      tronc: { feetY: 1351, cx: 511, anchor: 1000 }, esquena: { feetY: 1353, cx: 513, anchor: 1037 },
+      perfil: { feetY: 1368, cx: 359, anchor: 1004 }, pilar: { feetY: 1452, cx: 513, anchor: 1010 },
+      enx: { feetY: 1421, cx: 522, anchor: 1050 },
     },
   };
   function loadSprites() {
@@ -287,10 +287,10 @@
   // seen from behind; the front ones lower). dx in column units, dy in levelH units.
   function layout(w) {
     if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
-    if (w === 2) return [{ dx: -0.5, dy: 0.04, back: false }, { dx: 0.5, dy: 0.04, back: false }];
-    if (w === 3) return [{ dx: 0, dy: -0.36, back: true }, { dx: -0.56, dy: 0.12, back: false }, { dx: 0.56, dy: 0.12, back: false }];
-    if (w === 4) return [{ dx: -0.34, dy: -0.34, back: true }, { dx: 0.34, dy: -0.34, back: true }, { dx: -0.66, dy: 0.12, back: false }, { dx: 0.66, dy: 0.12, back: false }];
-    return [{ dx: -0.38, dy: -0.36, back: true }, { dx: 0.38, dy: -0.36, back: true }, { dx: -0.72, dy: 0.12, back: false }, { dx: 0, dy: 0.16, back: false }, { dx: 0.72, dy: 0.12, back: false }].slice(0, w);
+    if (w === 2) return [{ dx: -0.5, dy: 0, back: false }, { dx: 0.5, dy: 0, back: false }];
+    if (w === 3) return [{ dx: 0, dy: 0, back: true }, { dx: -0.56, dy: 0, back: false }, { dx: 0.56, dy: 0, back: false }];
+    if (w === 4) return [{ dx: -0.32, dy: 0, back: true }, { dx: 0.32, dy: 0, back: true }, { dx: -0.66, dy: 0, back: false }, { dx: 0.66, dy: 0, back: false }];
+    return [{ dx: -0.34, dy: 0, back: true }, { dx: 0.34, dy: 0, back: true }, { dx: -0.72, dy: 0, back: false }, { dx: 0, dy: 0, back: false }, { dx: 0.72, dy: 0, back: false }].slice(0, w);
   }
   const floorMul = (fi, isPilar) => fi === F - 2 ? (isPilar ? 0.72 : 0.56) : 1; // acotxador floor
   const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5 };
@@ -542,7 +542,7 @@
     // Draw an illustrated pose (recoloured) anchored at the feet; returns false if missing.
     const drawPose = (name, x, y, rot, mirror, kid) => {
       const cv = sprite(name), g = SPR.geo[name]; if (!cv || !g) return false;
-      const sc = (1.3 * levelH / (g.feetY - g.headY)) * (kid || 1);
+      const sc = (levelH / g.anchor) * (kid || 1);
       ctx.save(); ctx.translate(x, y); if (rot) ctx.rotate(rot); if (mirror) ctx.scale(-1, 1);
       ctx.drawImage(cv, -g.cx * sc, -g.feetY * sc, cv.width * sc, cv.height * sc);
       ctx.restore(); return true;
@@ -583,7 +583,7 @@
       const kid = isEnx ? 0.65 : (isAcot ? 0.8 : 1);  // enxaneta/acotxador are kids
       const spread = !isPilar && !isEnx && !isAcot;    // trunk & dosos grip sideways
       const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac);
-      const lay = layout(w).slice().sort((a, b) => a.dy - b.dy); // back first
+      const lay = layout(w).slice().sort((a,b)=>(a.back===b.back)?0:(a.back?-1:1)); // back first
       for (const c of lay) {
         const sc = (c.back ? 0.92 : 1) * kid;
         const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
@@ -611,7 +611,7 @@
       for (let i = state.placed - 1; i >= 0; i--) {
         const fi = i, w = FLOORS[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
         const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac), yc = fyOf(fi);
-        const lay = layout(w).slice().sort((a, b) => a.dy - b.dy);
+        const lay = layout(w).slice().sort((a,b)=>(a.back===b.back)?0:(a.back?-1:1));
         for (const c of lay) {
           const x = cxBase + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
           const pose = poseFor(fi, c);

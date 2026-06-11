@@ -286,13 +286,13 @@ render(3, true, true, 0.6, "/tmp/climb.png");
 
 // wide-trunk castell composition (Phase 1 of the new engine)
 function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
-// plan-view layout of a floor: people seen as a triangle/diamond (some at the back)
+// plan-view layout of a floor: people aligned (same height); some at the back (centre)
 function layout(w) {
   if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
-  if (w === 2) return [{ dx: -0.5, dy: 0.04, back: false }, { dx: 0.5, dy: 0.04, back: false }];
-  if (w === 3) return [{ dx: 0, dy: -0.36, back: true }, { dx: -0.56, dy: 0.12, back: false }, { dx: 0.56, dy: 0.12, back: false }];
-  if (w === 4) return [{ dx: -0.34, dy: -0.34, back: true }, { dx: 0.34, dy: -0.34, back: true }, { dx: -0.66, dy: 0.12, back: false }, { dx: 0.66, dy: 0.12, back: false }];
-  return [{ dx: -0.38, dy: -0.36, back: true }, { dx: 0.38, dy: -0.36, back: true }, { dx: -0.72, dy: 0.12, back: false }, { dx: 0, dy: 0.16, back: false }, { dx: 0.72, dy: 0.12, back: false }].slice(0, w);
+  if (w === 2) return [{ dx: -0.5, dy: 0, back: false }, { dx: 0.5, dy: 0, back: false }];
+  if (w === 3) return [{ dx: 0, dy: 0, back: true }, { dx: -0.56, dy: 0, back: false }, { dx: 0.56, dy: 0, back: false }];
+  if (w === 4) return [{ dx: -0.32, dy: 0, back: true }, { dx: 0.32, dy: 0, back: true }, { dx: -0.66, dy: 0, back: false }, { dx: 0.66, dy: 0, back: false }];
+  return [{ dx: -0.34, dy: 0, back: true }, { dx: 0.34, dy: 0, back: true }, { dx: -0.72, dy: 0, back: false }, { dx: 0, dy: 0, back: false }, { dx: 0.72, dy: 0, back: false }].slice(0, w);
 }
 function floorMul(fi, F, isPilar) { if (fi === F - 2) return isPilar ? 0.72 : 0.56; return 1; }
 // A stylised village square with the town hall (ajuntament) behind.
@@ -356,7 +356,7 @@ function renderCastell(floors, file) {
     const w = floors[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
     const kid = isEnx ? 0.65 : (isAcot ? 0.8 : 1);
     const spread = !isPilar && !isEnx && !isAcot; // trunk & dosos grip sideways
-    const lay = layout(w).slice().sort((a, b) => a.dy - b.dy);
+    const lay = layout(w).slice().sort((a,b)=>(a.back===b.back)?0:(a.back?-1:1));
     for (const c of lay) {
       const sc = (c.back ? 0.92 : 1) * kid;
       ctx.save(); ctx.translate(cxBase + c.dx * colSpacing, fy[fi] + c.dy * levelH); ctx.scale(sc, sc);
@@ -393,14 +393,14 @@ function rgb2hsv(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.mi
 function hsv2rgb(h,s,v){const cc=v*s,xx=cc*(1-Math.abs((h/60)%2-1)),m=v-cc;let r,g,b;if(h<60){r=cc;g=xx;b=0;}else if(h<120){r=xx;g=cc;b=0;}else if(h<180){r=0;g=cc;b=xx;}else if(h<240){r=0;g=xx;b=cc;}else if(h<300){r=xx;g=0;b=cc;}else{r=cc;g=0;b=xx;}return[(r+m)*255,(g+m)*255,(b+m)*255];}
 function recolor(img,hex){const W2=img.width,H2=img.height;const c=napi.createCanvas(W2,H2),x=c.getContext('2d');x.drawImage(img,0,0);const id=x.getImageData(0,0,W2,H2),d=id.data;const th=rgb2hsv(parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16))[0];for(let i=0;i<d.length;i+=4){if(d[i+3]<10)continue;const[h,s,v]=rgb2hsv(d[i],d[i+1],d[i+2]);if(s>0.45&&v>0.22&&(h<18||h>340)){const[nr,ng,nb]=hsv2rgb(th,Math.min(1,s),v);d[i]=nr;d[i+1]=ng;d[i+2]=nb;}}x.putImageData(id,0,0);return c;}
 const GEO = {
-  tronc:{feetY:1351,headY:66,cx:511}, esquena:{feetY:1353,headY:67,cx:513},
-  perfil:{feetY:1368,headY:177,cx:359}, pilar:{feetY:1452,headY:62,cx:513},
-  enx:{feetY:1421,headY:52,cx:522},
+  tronc:{feetY:1351,cx:511,anchor:1000}, esquena:{feetY:1353,cx:513,anchor:1037},
+  perfil:{feetY:1368,cx:359,anchor:1004}, pilar:{feetY:1452,cx:513,anchor:1010},
+  enx:{feetY:1421,cx:522,anchor:1050},
 };
 const SP = {};
 function drawSp(name, x, y, mirror, kid){
   const img=SP[name], g=GEO[name]; if(!img) return false;
-  const scale=(1.3*levelH/(g.feetY-g.headY))*(kid||1);
+  const scale=(levelH/g.anchor)*(kid||1);
   ctx.save(); ctx.translate(x,y); if(mirror) ctx.scale(-1,1);
   ctx.drawImage(img, -g.cx*scale, -g.feetY*scale, img.width*scale, img.height*scale);
   ctx.restore(); return true;
@@ -415,7 +415,7 @@ function renderMulti(floors, file){
   const fy=[];let c2=0;for(let i=0;i<F;i++){fy[i]=baseY-levelH*c2;c2+=floorMul(i,F,isPilar);}
   for(let fi=F-1;fi>=0;fi--){
     const w=floors[fi], isEnx=fi===F-1, isAcot=fi===F-2;
-    const lay=layout(w).slice().sort((a,b)=>a.dy-b.dy);
+    const lay=layout(w).slice().sort((a,b)=>(a.back===b.back)?0:(a.back?-1:1));
     for(const c of lay){
       const x=cxBase+c.dx*colSpacing, y=fy[fi]+c.dy*levelH;
       let done=false;
