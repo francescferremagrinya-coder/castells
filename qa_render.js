@@ -393,26 +393,29 @@ function rgb2hsv(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.mi
 function hsv2rgb(h,s,v){const cc=v*s,xx=cc*(1-Math.abs((h/60)%2-1)),m=v-cc;let r,g,b;if(h<60){r=cc;g=xx;b=0;}else if(h<120){r=xx;g=cc;b=0;}else if(h<180){r=0;g=cc;b=xx;}else if(h<240){r=0;g=xx;b=cc;}else if(h<300){r=xx;g=0;b=cc;}else{r=cc;g=0;b=xx;}return[(r+m)*255,(g+m)*255,(b+m)*255];}
 function recolor(img,hex){const W2=img.width,H2=img.height;const c=napi.createCanvas(W2,H2),x=c.getContext('2d');x.drawImage(img,0,0);const id=x.getImageData(0,0,W2,H2),d=id.data;const th=rgb2hsv(parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16))[0];for(let i=0;i<d.length;i+=4){if(d[i+3]<10)continue;const[h,s,v]=rgb2hsv(d[i],d[i+1],d[i+2]);if(s>0.45&&v>0.22&&(h<18||h>340)){const[nr,ng,nb]=hsv2rgb(th,Math.min(1,s),v);d[i]=nr;d[i+1]=ng;d[i+2]=nb;}}x.putImageData(id,0,0);return c;}
 const GEO = {
-  tronc:{feetY:1351,cx:511,anchor:1000}, esquena:{feetY:1353,cx:513,anchor:1037},
+  tronc:{feetY:1351,cx:511,anchor:1000}, esquena:{feetY:1116,cx:424,anchor:859},
   perfil:{feetY:1368,cx:359,anchor:1004}, pilar:{feetY:1452,cx:513,anchor:1010},
   enx:{feetY:1421,cx:522,anchor:1050},
   acot:{feetY:1031,cx:420,anchor:760}, enxw:{feetY:1120,cx:404,anchor:980},
-  pinya:{feetY:1191,headY:121,cx:419}, pinyaD:{feetY:1177,headY:131,cx:420}, pinyaE:{feetY:1177,headY:120,cx:421},
+  pinya:{feetY:1191,headY:121,cx:419,anchor:1004}, pinyaD:{feetY:1177,headY:131,cx:420,anchor:1014}, pinyaE:{feetY:1177,headY:120,cx:421,anchor:1014},
 };
 const SP = {};
 function drawPinyaSpr(cx, gy, radius){
-  const rows=[{dy:-46,hw:radius*0.55,s:8.5},{dy:-31,hw:radius*0.76,s:9.5},{dy:-16,hw:radius*0.95,s:11},{dy:0,hw:radius*1.08,s:12.5}];
+  // Pinya = full-size adults (same scale as the trunk: levelH/anchor). The crowd
+  // WIDTH comes from `radius`; people are packed and overlap into a dense mass.
+  const step=levelH*0.34, rowGap=levelH*0.13;
+  const rows=[{dy:-3*rowGap,hw:radius*0.55},{dy:-2*rowGap,hw:radius*0.80},{dy:-1*rowGap,hw:radius*1.00},{dy:0,hw:radius*1.12}];
   rows.forEach((row,ri)=>{
-    const ry=gy+row.dy, s=row.s, step=s*1.12;
-    const count=Math.floor((row.hw*2)/step)+1;
-    const startX=cx-(count-1)*step/2+(ri%2)*step*0.5;
-    const xs=[];for(let i=0;i<count;i++)xs.push(startX+i*step);
+    const ry=gy+row.dy, step2=step;
+    const count=Math.max(1,Math.floor((row.hw*2)/step2)+1);
+    const startX=cx-(count-1)*step2/2+(ri%2)*step2*0.5;
+    const xs=[];for(let i=0;i<count;i++)xs.push(startX+i*step2);
     xs.sort((a,b)=>Math.abs(b-cx)-Math.abs(a-cx));
     for(const x of xs){
-      let name = x < cx-step*0.4 ? 'pinyaE' : (x > cx+step*0.4 ? 'pinyaD' : 'pinya');
+      let name = x < cx-step2*0.4 ? 'pinyaE' : (x > cx+step2*0.4 ? 'pinyaD' : 'pinya');
       const g=GEO[name], img=SP[name]; if(!img) continue;
-      const scale=(s*3.4)/(g.feetY-g.headY);
-      ctx.save(); ctx.translate(x, ry+s*1.1); ctx.drawImage(img, -g.cx*scale, -g.feetY*scale, img.width*scale, img.height*scale); ctx.restore();
+      const sc=levelH/g.anchor;
+      ctx.save(); ctx.translate(x, ry); ctx.drawImage(img, -g.cx*sc, -g.feetY*sc, img.width*sc, img.height*sc); ctx.restore();
     }
   });
 }

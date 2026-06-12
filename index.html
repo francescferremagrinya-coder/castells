@@ -211,11 +211,11 @@
     imgs: {}, cache: {},
     files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar", acot: "casteller_acotxador", enxw: "casteller_enxaneta", pinya: "casteller_pinya", pinyaD: "casteller_pinya_dreta", pinyaE: "casteller_pinya_esquerra" },
     geo: {
-      tronc: { feetY: 1351, cx: 511, anchor: 1000 }, esquena: { feetY: 1353, cx: 513, anchor: 1037 },
+      tronc: { feetY: 1351, cx: 511, anchor: 1000 }, esquena: { feetY: 1116, cx: 424, anchor: 859 },
       perfil: { feetY: 1368, cx: 359, anchor: 1004 }, pilar: { feetY: 1452, cx: 513, anchor: 1010 },
       enx: { feetY: 1421, cx: 522, anchor: 1050 },
       acot: { feetY: 1031, cx: 420, anchor: 760 }, enxw: { feetY: 1120, cx: 404, anchor: 980 },
-      pinya: { feetY: 1191, headY: 121, cx: 419 }, pinyaD: { feetY: 1177, headY: 131, cx: 420 }, pinyaE: { feetY: 1177, headY: 120, cx: 421 },
+      pinya: { feetY: 1191, headY: 121, cx: 419, anchor: 1004 }, pinyaD: { feetY: 1177, headY: 131, cx: 420, anchor: 1014 }, pinyaE: { feetY: 1177, headY: 120, cx: 421, anchor: 1014 },
     },
   };
   function loadSprites() {
@@ -1042,18 +1042,21 @@
   // and the front rows' arms stretch forward toward the centre.
   // Illustrated pinya: a dense crowd built from the back/turned pinya sprites.
   function drawPinyaSpr(cx, gy, radius) {
-    const rows = [{ dy: -46, hw: radius * 0.55, s: 8.5 }, { dy: -31, hw: radius * 0.76, s: 9.5 }, { dy: -16, hw: radius * 0.95, s: 11 }, { dy: 0, hw: radius * 1.08, s: 12.5 }];
+    // Pinya = full-size adults (same scale as the trunk: levelH/anchor). The crowd
+    // WIDTH comes from `radius`; people are packed and overlap into a dense mass.
+    const step = levelH * 0.34, rowGap = levelH * 0.13;
+    const rows = [{ dy: -3 * rowGap, hw: radius * 0.55 }, { dy: -2 * rowGap, hw: radius * 0.80 }, { dy: -1 * rowGap, hw: radius * 1.00 }, { dy: 0, hw: radius * 1.12 }];
     rows.forEach((row, ri) => {
-      const ry = gy + row.dy, s = row.s, step = s * 1.12;
-      const count = Math.floor((row.hw * 2) / step) + 1;
+      const ry = gy + row.dy;
+      const count = Math.max(1, Math.floor((row.hw * 2) / step) + 1);
       const startX = cx - (count - 1) * step / 2 + (ri % 2) * step * 0.5;
       const xs = []; for (let i = 0; i < count; i++) xs.push(startX + i * step);
       xs.sort((a, b) => Math.abs(b - cx) - Math.abs(a - cx));
       for (const x of xs) {
         const name = x < cx - step * 0.4 ? "pinyaE" : (x > cx + step * 0.4 ? "pinyaD" : "pinya");
         const cv = sprite(name), g = SPR.geo[name]; if (!cv || !g) continue;
-        const scale = (s * 3.4) / (g.feetY - g.headY);
-        ctx.save(); ctx.translate(x, ry + s * 1.1); ctx.drawImage(cv, -g.cx * scale, -g.feetY * scale, cv.width * scale, cv.height * scale); ctx.restore();
+        const sc = levelH / g.anchor;
+        ctx.save(); ctx.translate(x, ry); ctx.drawImage(cv, -g.cx * sc, -g.feetY * sc, cv.width * sc, cv.height * sc); ctx.restore();
       }
     });
   }
@@ -1239,6 +1242,7 @@
   }
 
   function showEnd() {
+    Sound.stop();
     const r = state.result;
     const emoji = document.getElementById("endEmoji");
     const title = document.getElementById("endTitle");

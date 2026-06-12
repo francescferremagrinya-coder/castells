@@ -77,6 +77,25 @@ Un **Pilar de X** = X pisos comptant la pinya com a pis 1 (pinya + X−1 de tron
 - 4 de 10 amb folre: ~92–102
 - 2 de 10 amb folre, manilles i puntals: ~130–150
 
+## Gammes oficials del Concurs de Castells
+
+Classificació oficial per gammes (font per agrupar els castells al joc a mesura
+que n'afegim de més difícils). Al joc, de moment, agrupem en *Baixa / Superior /
+Extra* simplificades; aquesta és la referència «de veritat»:
+
+- **Gamma baixa** — els 8 i 9 «bàsics»: 7 de 8, 5 de 8, 4 de 8 a, 3 de 8 a,
+  7 de 8 a, 5 de 8 a, 4 de 9 f, 3 de 9 f…
+- **Gamma alta** — la franja alta dels 8 i 9: 9 de 8, 7 de 9 f, 5 de 9 f,
+  4 de 9 fa, 3 de 9 fa…
+- **Gamma extra** — castells amb **folre + manilles** i pilars reforçats:
+  **4 de 9 fa**, **2 de 9 fm**, **P de 8 fm**, **9 de 8**…
+- **Gamma superior / extra prèmium** — els **10 pisos** i els **«nets»** (sense
+  folre/manilles on costa més): **3 de 10 fm**, **4 de 10 fm**, **4 de 9 sf**,
+  **P de 9 fmp**, **2 de 10 fmp**…
+
+> Notació recordatori: **f** = folre · **m** = manilles · **p** = puntals ·
+> **s** = sense (net) · **a** = amb agulla.
+
 ## Estat al joc
 
 - **Jugables ara** (1 persona per pis → encaixen amb el motor actual): els
