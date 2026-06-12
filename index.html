@@ -59,6 +59,8 @@
   .home-btns .btn, .home-btns .btn-ghost { width: 100%; }
   .btn-ghost.small { font-size: 13px; padding: 8px 18px; }
   .pv-canvas { width: 130px; height: 228px; margin-bottom: 14px; }
+  .gamma-h { width: min(90%,360px); margin: 14px auto 2px; text-align: left; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #2c3942; }
+  .gamma-h.lock { color: #9aa6ae; font-weight: 700; }
   .castell { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 2px solid #dfe6ea; border-radius: 14px; padding: 14px 16px; cursor: pointer; transition: transform .08s; }
   .castell.play:active { transform: scale(.98); }
   .castell.lock { cursor: default; }
@@ -124,26 +126,25 @@
   </svg>
   <div class="principis">Valor · Força · Equilibri · Seny</div>
   <div class="home-btns">
-    <button class="btn" id="reptesBtn">Reptes</button>
     <button class="btn" id="assaigBtn">Assaig</button>
-    <button class="btn-ghost" id="capBtn">Cap de colla</button>
+    <button class="btn" id="actuacioBtn">Actuació</button>
   </div>
   <button class="btn-ghost small" id="editCollaBtn">Editar la colla</button>
 </div>
 
-<!-- Castell chooser (Reptes / Assaig) -->
+<!-- Assaig (castell chooser by gamma) -->
 <div class="overlay hidden" id="reptesScreen">
-  <h1 id="reptesTitle" style="margin:0 0 2px">Reptes</h1>
-  <div class="sub" id="castellersTag" style="margin-bottom:14px">🧍 0 castellers</div>
+  <h1 style="margin:0 0 2px">Assaig</h1>
+  <div class="sub" style="margin-bottom:14px">Practica i desbloqueja castells. Descarrega'ls per obrir-ne de nous.</div>
   <div class="castell-list" id="castellList"></div>
   <button class="btn-ghost" id="reptesBack">Enrere</button>
 </div>
 
-<!-- Cap de colla (teaser) -->
+<!-- Actuació (teaser) -->
 <div class="overlay hidden" id="capScreen">
-  <div class="big">🎖️</div>
-  <h1>Cap de colla</h1>
-  <div class="sub">Properament: dirigeix la teva colla tota una <b>temporada</b> — diades, fitxar castellers i perseguir el somni del castell de 9.</div>
+  <div class="big">🎪</div>
+  <h1>Actuació</h1>
+  <div class="sub">Properament: <b>actuacions de 4 rondes</b> (3 castells + 1 pilar) amb els castells que hagis desbloquejat a l'Assaig.</div>
   <button class="btn" id="capBack">Enrere</button>
 </div>
 
@@ -254,18 +255,26 @@
   function pilarFloors(num) { const f = []; for (let k = 0; k < num - 1; k++) f.push(1); return f; }
   function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
   const peopleOf = (c) => c.floors.reduce((a, b) => a + b, 0);
+  // gamma: 0 = baixa (fàcil), 1 = superior (mitjana), 2 = extra (difícil)
   const CASTELLS = [
-    { id: "p4", name: "Pilar de 4", floors: pilarFloors(4), cost: 0, diff: 0.8, pts: { carr: 120, desc: 140 } },
-    { id: "p5", name: "Pilar de 5", floors: pilarFloors(5), cost: 12, diff: 0.9, pts: { carr: 185, desc: 210 } },
-    { id: "t3de6", name: "3 de 6", floors: wideFloors(3, 6), cost: 28, diff: 1.0, pts: { carr: 150, desc: 175 } },
-    { id: "t4de7", name: "4 de 7", floors: wideFloors(4, 7), cost: 55, diff: 1.12, pts: { carr: 240, desc: 275 } },
-    { id: "t3de7", name: "3 de 7", floors: wideFloors(3, 7), cost: 80, diff: 1.2, pts: { carr: 250, desc: 290 } },
-    { id: "p6", name: "Pilar de 6", floors: pilarFloors(6), cost: 110, diff: 1.26, pts: { carr: 580, desc: 665 } },
-    { id: "t4de8", name: "4 de 8", floors: wideFloors(4, 8), cost: 150, diff: 1.34, pts: { carr: 550, desc: 635 } },
-    { id: "t3de8", name: "3 de 8", floors: wideFloors(3, 8), cost: 200, diff: 1.42, pts: { carr: 610, desc: 700 } },
-    { id: "p7", name: "Pilar de 7 f", floors: pilarFloors(7), cost: 250, diff: 1.5, folre: true, pts: { carr: 835, desc: 960 } },
-    { id: "p8", name: "Pilar de 8 fm", floors: pilarFloors(8), cost: 330, diff: 1.62, folre: true, manilles: true, pts: { carr: 1925, desc: 2210 } },
+    { id: "p4", name: "Pilar de 4", gamma: 0, floors: pilarFloors(4), diff: 0.8, pts: { carr: 120, desc: 140 } },
+    { id: "p5", name: "Pilar de 5", gamma: 0, floors: pilarFloors(5), diff: 0.9, pts: { carr: 185, desc: 210 } },
+    { id: "t3de6", name: "3 de 6", gamma: 0, floors: wideFloors(3, 6), diff: 1.0, pts: { carr: 150, desc: 175 } },
+    { id: "t4de7", name: "4 de 7", gamma: 0, floors: wideFloors(4, 7), diff: 1.12, pts: { carr: 240, desc: 275 } },
+    { id: "t3de7", name: "3 de 7", gamma: 1, floors: wideFloors(3, 7), diff: 1.22, pts: { carr: 250, desc: 290 } },
+    { id: "p6", name: "Pilar de 6", gamma: 1, floors: pilarFloors(6), diff: 1.3, pts: { carr: 580, desc: 665 } },
+    { id: "t4de8", name: "4 de 8", gamma: 1, floors: wideFloors(4, 8), diff: 1.4, pts: { carr: 550, desc: 635 } },
+    { id: "t3de8", name: "3 de 8", gamma: 2, floors: wideFloors(3, 8), diff: 1.5, pts: { carr: 610, desc: 700 } },
+    { id: "p7", name: "Pilar de 7 f", gamma: 2, floors: pilarFloors(7), diff: 1.6, folre: true, pts: { carr: 835, desc: 960 } },
+    { id: "p8", name: "Pilar de 8 fm", gamma: 2, floors: pilarFloors(8), diff: 1.72, folre: true, manilles: true, pts: { carr: 1925, desc: 2210 } },
   ];
+  const GAMMES = ["Gamma baixa", "Gamma superior", "Gamma extra"];
+  function gammaUnlocked(g) { return g === 0 || CASTELLS.filter((c) => c.gamma === g - 1).every((c) => save.done[c.id]); }
+  function castellUnlocked(c) {
+    if (!gammaUnlocked(c.gamma)) return false;
+    const inG = CASTELLS.filter((x) => x.gamma === c.gamma), i = inG.indexOf(c);
+    return i === 0 || save.done[inG[i - 1].id];
+  }
   const castName = (c) => c.name;
 
   // ---- Save / load ----
@@ -1187,32 +1196,35 @@
     homeScreen.classList.remove("hidden");
   }
 
-  function showReptes(mode) {
+  function showAssaig() {
     screen = "menu"; Sound.stop();
-    const isAssaig = mode === "assaig";
-    document.getElementById("reptesTitle").textContent = isAssaig ? "Assaig" : "Reptes";
-    document.getElementById("castellersTag").textContent = isAssaig ? "Practica l'equilibri de qualsevol castell" : "🧍 " + save.castellers + " castellers";
     const list = document.getElementById("castellList");
     list.innerHTML = "";
-    CASTELLS.forEach((c) => {
-      const locked = !isAssaig && save.castellers < c.cost;   // assaig: tot disponible
-      const row = document.createElement("div");
-      row.className = "castell " + (locked ? "lock" : "play");
-      const best = save.best[c.id];
-      const cw = Math.max.apply(null, c.floors);
-      const meta = locked ? "Necessites 🧍 " + c.cost + " castellers" : (c.floors.length + 1) + " pisos · " + (cw > 1 ? cw + " per pis" : "pilar");
-      row.innerHTML =
-        '<div><div class="c-name">' + (locked ? "🔒 " : (save.done[c.id] ? "✓ " : "")) + castName(c) + '</div>' +
-        '<div class="c-meta">' + meta + '</div></div>' +
-        '<div class="c-best">' + (isAssaig ? "Assaja" : (locked ? "🧍 " + c.cost : (best ? best + " pts" : "Juga"))) + '</div>';
-      if (!locked) row.addEventListener("click", () => begin(c, isAssaig));
-      list.appendChild(row);
-    });
+    for (let g = 0; g < GAMMES.length; g++) {
+      const gOpen = gammaUnlocked(g);
+      const h = document.createElement("div");
+      h.className = "gamma-h" + (gOpen ? "" : " lock");
+      h.textContent = (gOpen ? "" : "🔒 ") + GAMMES[g] + (gOpen ? "" : " · completa la " + GAMMES[g - 1].toLowerCase());
+      list.appendChild(h);
+      CASTELLS.filter((c) => c.gamma === g).forEach((c) => {
+        const open = castellUnlocked(c);
+        const row = document.createElement("div");
+        row.className = "castell " + (open ? "play" : "lock");
+        const cw = Math.max.apply(null, c.floors);
+        const meta = (c.floors.length + 1) + " pisos · " + (cw > 1 ? cw + " per pis" : "pilar");
+        row.innerHTML =
+          '<div><div class="c-name">' + (open ? (save.done[c.id] ? "✓ " : "") : "🔒 ") + castName(c) + '</div>' +
+          '<div class="c-meta">' + meta + '</div></div>' +
+          '<div class="c-best">' + (open ? (save.best[c.id] ? save.best[c.id] + " pts" : "Juga") : "") + '</div>';
+        if (open) row.addEventListener("click", () => begin(c, false));
+        list.appendChild(row);
+      });
+    }
     hideScreens();
     reptesScreen.classList.remove("hidden");
   }
 
-  function showCap() { screen = "menu"; Sound.stop(); hideScreens(); capScreen.classList.remove("hidden"); }
+  function showActuacio() { screen = "menu"; Sound.stop(); hideScreens(); capScreen.classList.remove("hidden"); }
 
   function begin(castell, assaig) {
     curCastell = castell || curCastell;
@@ -1231,28 +1243,28 @@
     const emoji = document.getElementById("endEmoji");
     const title = document.getElementById("endTitle");
     const sub = document.getElementById("endSub");
-    let pts = 0, earned = 0;
+    let pts = 0;
     if (r.ok) {
       pts = curCastell.pts.desc;
-      earned = Math.round(peopleOf(curCastell) * 4);
-      const wasNew = !state.assaig && !save.done[curCastell.id];
-      const idx = CASTELLS.indexOf(curCastell);
-      const next = CASTELLS[idx + 1];
-      if (!state.assaig) save.done[curCastell.id] = true;
+      const wasDone = save.done[curCastell.id];
+      save.done[curCastell.id] = true;
       emoji.textContent = "🎉"; title.textContent = "Descarregat!";
-      sub.textContent = "Carregat i descarregat. +" + pts + " punts · +🧍 " + earned + " castellers." +
-        (wasNew && next && save.castellers + earned >= next.cost ? " Ja pots provar el " + castName(next) + "!" : "");
+      let msg = "Carregat i descarregat! +" + pts + " punts.";
+      if (!wasDone) {
+        const inG = CASTELLS.filter((x) => x.gamma === curCastell.gamma), i = inG.indexOf(curCastell);
+        if (inG[i + 1]) msg += " Desbloquejat: " + castName(inG[i + 1]) + "!";
+        else if (curCastell.gamma + 1 < GAMMES.length && gammaUnlocked(curCastell.gamma + 1)) msg += " Has obert la " + GAMMES[curCastell.gamma + 1] + "!";
+      }
+      sub.textContent = msg;
     } else if (state.placed >= F) {
-      pts = curCastell.pts.carr; earned = Math.round(peopleOf(curCastell) * 2);
+      pts = curCastell.pts.carr;
       emoji.textContent = "😬"; title.textContent = "Carregat… però llenya!";
-      sub.textContent = r.reason + " Coronat però no descarregat. +" + pts + " punts · +🧍 " + earned + ".";
+      sub.textContent = r.reason + " Coronat però no descarregat. +" + pts + " punts.";
     } else {
-      earned = state.placed * 3;
       emoji.textContent = "💥"; title.textContent = "Llenya!";
-      sub.textContent = r.reason + " +🧍 " + earned + " castellers per l'esforç.";
+      sub.textContent = r.reason;
     }
-    if (!state.assaig && pts > (save.best[curCastell.id] || 0)) save.best[curCastell.id] = pts;
-    save.castellers += earned;
+    if (pts > (save.best[curCastell.id] || 0)) save.best[curCastell.id] = pts;
     persist();
     hideScreens();
     endScreen.classList.remove("hidden");
@@ -1268,9 +1280,8 @@
     showHome();
   });
   document.getElementById("editCollaBtn").addEventListener("click", showCreator);
-  document.getElementById("reptesBtn").addEventListener("click", () => showReptes("repte"));
-  document.getElementById("assaigBtn").addEventListener("click", () => showReptes("assaig"));
-  document.getElementById("capBtn").addEventListener("click", showCap);
+  document.getElementById("assaigBtn").addEventListener("click", showAssaig);
+  document.getElementById("actuacioBtn").addEventListener("click", showActuacio);
   document.getElementById("reptesBack").addEventListener("click", showHome);
   document.getElementById("capBack").addEventListener("click", showHome);
   document.getElementById("menuBtn").addEventListener("click", showHome);
