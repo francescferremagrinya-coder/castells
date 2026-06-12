@@ -289,12 +289,12 @@ function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 
 // plan-view layout of a floor: people aligned (same height); some at the back (centre)
 function layout(w) {
   if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
-  if (w === 2) return [{ dx: -0.5, dy: 0, back: false }, { dx: 0.5, dy: 0, back: false }];
+  if (w === 2) return [{ dx: -0.34, dy: 0, back: false }, { dx: 0.34, dy: 0, back: false }];
   if (w === 3) return [{ dx: 0, dy: 0, back: true }, { dx: -0.56, dy: 0, back: false }, { dx: 0.56, dy: 0, back: false }];
   if (w === 4) return [{ dx: -0.32, dy: 0, back: true }, { dx: 0.32, dy: 0, back: true }, { dx: -0.66, dy: 0, back: false }, { dx: 0.66, dy: 0, back: false }];
   return [{ dx: -0.34, dy: 0, back: true }, { dx: 0.34, dy: 0, back: true }, { dx: -0.72, dy: 0, back: false }, { dx: 0, dy: 0, back: false }, { dx: 0.72, dy: 0, back: false }].slice(0, w);
 }
-function floorMul(fi, F, isPilar) { if (fi === F - 2) return isPilar ? 0.72 : 0.56; return 1; }
+function floorMul(fi, F, isPilar) { if (fi === F - 2) return isPilar ? 0.72 : 0.5; if (!isPilar && fi === F - 3) return 0.74; return 1; }
 // A stylised village square with the town hall (ajuntament) behind.
 function drawPlaca(groundY) {
   const by = groundY + 4;
@@ -431,7 +431,7 @@ function renderMulti(floors, file){
   levelH=Math.min(64,(groundY-H*0.05)/(acc+0.9));
   const baseY=groundY-40+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
   const fy=[];let c2=0;for(let i=0;i<F;i++){fy[i]=baseY-levelH*c2;c2+=floorMul(i,F,isPilar);}
-  const kidScale=(fi)=> fi===F-1?0.6 : fi===F-2?0.78 : (!isPilar&&fi===F-3&&floors[fi]>=2?0.88:1);
+  const kidScale=(fi)=> fi===F-1?0.72 : fi===F-2?0.74 : (!isPilar&&fi===F-3&&floors[fi]>=2?0.8:1);
   const yLift=(fi)=> fi===F-1?levelH*0.14:0;
   for(let fi=F-1;fi>=0;fi--){
     const w=floors[fi], isEnx=fi===F-1, isAcot=fi===F-2, kid=kidScale(fi);

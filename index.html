@@ -359,12 +359,12 @@
   // seen from behind; the front ones lower). dx in column units, dy in levelH units.
   function layout(w) {
     if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
-    if (w === 2) return [{ dx: -0.5, dy: 0, back: false }, { dx: 0.5, dy: 0, back: false }];
+    if (w === 2) return [{ dx: -0.34, dy: 0, back: false }, { dx: 0.34, dy: 0, back: false }];
     if (w === 3) return [{ dx: 0, dy: 0, back: true }, { dx: -0.56, dy: 0, back: false }, { dx: 0.56, dy: 0, back: false }];
     if (w === 4) return [{ dx: -0.32, dy: 0, back: true }, { dx: 0.32, dy: 0, back: true }, { dx: -0.66, dy: 0, back: false }, { dx: 0.66, dy: 0, back: false }];
     return [{ dx: -0.34, dy: 0, back: true }, { dx: 0.34, dy: 0, back: true }, { dx: -0.72, dy: 0, back: false }, { dx: 0, dy: 0, back: false }, { dx: 0.72, dy: 0, back: false }].slice(0, w);
   }
-  const floorMul = (fi, isPilar) => fi === F - 2 ? (isPilar ? 0.72 : 0.56) : 1; // acotxador floor
+  const floorMul = (fi, isPilar) => fi === F - 2 ? (isPilar ? 0.72 : 0.5) : (!isPilar && fi === F - 3 ? 0.74 : 1); // acotxador / dosos compression
   const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5, BUILD: 6 };
 
   let state = null;
@@ -780,7 +780,7 @@
     const f0 = state.floor0 || 1, fOff = state.floorOffset || [];
     const cxFloor = (fi) => cxBase + ((fi < f0 && fOff[fi] !== undefined ? fOff[fi] : (state.baseOffsetX || 0)) - (state.baseOffsetX || 0));
     // enxaneta, acotxador AND dosos are kids → smaller
-    const kidScale = (fi) => fi === F - 1 ? 0.6 : fi === F - 2 ? 0.78 : (!isPilar && fi === F - 3 && FLOORS[fi] >= 2 ? 0.88 : 1);
+    const kidScale = (fi) => fi === F - 1 ? 0.72 : fi === F - 2 ? 0.74 : (!isPilar && fi === F - 3 && FLOORS[fi] >= 2 ? 0.8 : 1);
     const yLift = (fi) => fi === F - 1 ? levelH * 0.14 : 0; // raise the enxaneta a bit (less hidden)
 
     // --- the castell has fallen: castellers tumble onto the pinya ---
