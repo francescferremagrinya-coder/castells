@@ -431,8 +431,8 @@ function renderMulti(floors, file){
   const groundY=H*0.84; drawPlaca(groundY);
   const F=floors.length, maxW=Math.max.apply(null,floors), isPilar=maxW===1;
   let acc=0; for(let i=0;i<F;i++) acc+=floorMul(i,F,isPilar);
-  levelH=Math.min(64,(groundY-H*0.05)/(acc+0.9));
-  const baseY=groundY-40+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
+  levelH=Math.min(64,(groundY-H*0.05)/(acc+1.5));
+  const baseY=groundY-levelH*0.8+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
   const fy=[];let c2=0;for(let i=0;i<F;i++){fy[i]=baseY-levelH*c2;c2+=floorMul(i,F,isPilar);}
   const kidScale=(fi)=> fi===F-1?0.72 : fi===F-2?0.74 : (!isPilar&&fi===F-3&&floors[fi]>=2?0.8:1);
   const yLift=(fi)=> fi===F-1?levelH*0.14:0;

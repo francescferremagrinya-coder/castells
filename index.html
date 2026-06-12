@@ -31,6 +31,20 @@
   .ctrl.active, .capbtn:active { background: rgba(255,255,255,.85); transform: scale(.97); }
 
   .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; pointer-events: auto; background: rgba(207,227,238,.94); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  /* Home menu — festive sky with a castell silhouette watermark */
+  #homeScreen {
+    background-color: #8cc2db;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 170'><g fill='%23223240' opacity='0.13'><rect x='54' y='12' width='12' height='14' rx='3'/><rect x='50' y='26' width='20' height='18' rx='3'/><rect x='45' y='44' width='30' height='20' rx='3'/><rect x='39' y='64' width='42' height='22' rx='4'/><rect x='33' y='86' width='54' height='24' rx='5'/><ellipse cx='60' cy='128' rx='58' ry='22'/></g></svg>"),
+      radial-gradient(70% 42% at 50% 4%, rgba(255,243,210,.95), rgba(255,243,210,0) 62%),
+      linear-gradient(180deg, #4f9fc8 0%, #7fbcd8 40%, #ddead0 74%, #ecd9ad 100%);
+    background-repeat: no-repeat;
+    background-position: center 78%, center top, center;
+    background-size: min(78vw,340px) auto, 100% 100%, 100% 100%;
+  }
+  #homeScreen h1 { text-shadow: 0 2px 0 rgba(255,255,255,.45); }
+  #homeScreen .principis { color: #355061; }
+  #homeScreen .colla-tag { color: #22323e; }
   #reptesScreen { justify-content: flex-start; padding-top: 24px; padding-bottom: 24px; }
   .castell-list { max-height: none; }
   .overlay.hidden { display: none; }
@@ -91,7 +105,7 @@
 
   <div class="ctrls">
     <div class="ctrl" id="ctrlL"><span>◀</span></div>
-    <button class="capbtn up" id="upBtn"><span class="ic">🎩</span>Amunt</button>
+    <button class="capbtn up" id="upBtn"><span class="ic">🗣️</span>Amunt</button>
     <button class="capbtn down" id="downBtn"><span class="ic">⬇️</span>Avall</button>
     <div class="ctrl" id="ctrlR"><span>▶</span></div>
   </div>
@@ -374,7 +388,7 @@
     return [{ dx: -0.34, dy: 0, back: true }, { dx: 0.34, dy: 0, back: true }, { dx: -0.72, dy: 0, back: false }, { dx: 0, dy: 0, back: false }, { dx: 0.72, dy: 0, back: false }].slice(0, w);
   }
   const floorMul = (fi, isPilar) => fi === F - 2 ? (isPilar ? 0.72 : 0.5) : (!isPilar && fi === F - 3 ? 0.74 : 1); // acotxador / dosos compression
-  const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5, BUILD: 6 };
+  const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5, BUILD: 6, CELEBRATE: 7 };
 
   let state = null;
 
@@ -407,7 +421,19 @@
       carregat: false,  // has it reached the top?
       wantUp: false,    // cap de colla tapped → send next floor up
       wantDown: false,  // tirar avall
+      celebT: 0,        // celebration jump clock
+      floorMsg: "",     // floating "Amunt els terços!" label
+      floorMsgT: 99,
     };
+  }
+
+  // Name of a floor for the "Amunt …" shout (fi = floor index, 0 = segons).
+  const ORDF = ["els segons", "els terços", "els quarts", "els quints", "els sisens", "els setens", "els vuitens", "els novens"];
+  function floorLabel(fi) {
+    if (fi === F - 1) return "l'enxaneta";
+    if (fi === F - 2) return "l'acotxador";
+    if (fi === F - 3 && FLOORS[fi] === 2) return "els dosos";
+    return ORDF[fi] || "amunt";
   }
 
   // ---- Input ----
@@ -451,6 +477,9 @@
     } else { tilt.enabled = true; updateTiltBtn(); }
   }
   tiltBtn.addEventListener("click", () => { if (tilt.enabled) { tilt.enabled = false; updateTiltBtn(); } else enableTilt(); });
+  // Accelerometer always on: devices without a permission gate start enabled now;
+  // iOS needs a user gesture, so begin() requests it when you start a castell.
+  (function () { const DOE = window.DeviceOrientationEvent; if (!(DOE && typeof DOE.requestPermission === "function")) { tilt.enabled = true; updateTiltBtn(); } })();
 
   // ---- Logic ----
   function difficulty() {
@@ -466,9 +495,11 @@
   function update(dt) {
     if (!state) return;
     state.time += dt;
+    state.floorMsgT += dt;
     state.shake *= Math.pow(0.001, dt);
     if (state.phase === PHASE.BUILD) { updateBuild(dt); return; }
     if (state.phase === PHASE.FALL) { updateDebris(dt); return; }
+    if (state.phase === PHASE.CELEBRATE) { state.celebT += dt; updateUI(); return; }
     if (state.phase === PHASE.READY || state.phase === PHASE.WIN) return;
 
     const diff = difficulty();
@@ -520,6 +551,7 @@
           state.wantUp = false;
           if (state.placed < F && Math.abs(state.lean) < 0.6) {
             state.climbing = true; state.goingUp = true; state.climbProg = 0;
+            state.floorMsg = "Amunt " + floorLabel(state.placed) + "!"; state.floorMsgT = 0;
             if (state.placed === F - 1) Sound.setTune("carregada");
           }
         } else if (state.wantDown) {
@@ -570,7 +602,7 @@
       }
     }
   }
-  function win() { state.phase = PHASE.WIN; state.result = { ok: true }; Sound.setTune("carregada"); if (Sound.isOn()) SFX.applause(4); setTimeout(showEnd, 700); }
+  function win() { state.phase = PHASE.CELEBRATE; state.result = { ok: true }; state.celebT = 0; Sound.setTune("carregada"); if (Sound.isOn()) SFX.applause(4); setTimeout(showEnd, 1800); }
 
   // ---- Building phase: a STACKING game. Each base layer slides sideways; tap to
   // drop it where it is. The better aligned with the one below, the solider the base.
@@ -647,7 +679,7 @@
     else if (state.phase === PHASE.UP) {
       if (state.climbing) t = state.goingUp ? "Pugen…" : "Baixen…";
       else if (state.carregat) t = "Carregat! Tira AVALL per descarregar";
-      else t = "Estable? Toca AMUNT 🎩";
+      else t = "Estable? Toca AMUNT 🗣️";
     }
     statusEl.textContent = t;
   }
@@ -751,11 +783,13 @@
     const totalCum = acc;
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
     cxBase = W / 2 + (state.baseOffsetX || 0) + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
-    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + 0.9));
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + 1.5));
     // base layers (pinya + folre + manilles) you stacked sit below the trunk
     const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
     const dyB = 34, nBelow = baseStack.length;
-    const pinyaTop = groundY - 40 - (nBelow - 1) * dyB; // raise the trunk above the base rings
+    // the segons rest on the pinya's shoulders → lift the trunk ~0.8 floors so the
+    // full-size pinya crowd doesn't bury the first floor
+    const pinyaTop = groundY - levelH * 0.8 - (nBelow - 1) * dyB;
     baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the base
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
     const drawBaseLayer = (name, x, y) => {
@@ -850,6 +884,12 @@
     state.pos = []; // recorded standing positions (used to seed the fall)
     const p = state.climbProg;
     const bob = Math.sin(p * 6 * Math.PI * 2) * levelH * 0.04;
+    // Descarregat! everyone hops together to celebrate (a few decaying jumps).
+    let yJump = 0;
+    if (state.phase === PHASE.CELEBRATE) {
+      const t = state.celebT;
+      yJump = -Math.abs(Math.sin(t * Math.PI * 2.4)) * levelH * 0.42 * Math.max(0, 1 - t / 1.7);
+    }
 
     // Climbing floor (up OR down): travels between the pinya and its standing place.
     if (state.climbing && state.placed < F) {
@@ -861,15 +901,27 @@
 
     // Standing floors.
     if (spriteOn) {
-      for (let i = state.placed - 1; i >= 0; i--) drawFloorIll(fyOf(i), i, true);
+      for (let i = state.placed - 1; i >= 0; i--) drawFloorIll(fyOf(i) + yJump, i, true);
     } else {
-      for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i), i, false, 1);
-      for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i), i, false, 2);
+      for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i) + yJump, i, false, 1);
+      for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i) + yJump, i, false, 2);
     }
 
     // Base layers drawn last (in front): pinya at the bottom, then folre/manilles
-    // stacked at the very spots where you placed them.
-    for (let i = 0; i < baseStack.length; i++) drawBaseLayer(baseStack[i].name, baseStack[i].x, groundY - i * dyB);
+    // stacked at the very spots where you placed them (they hop too when we win).
+    for (let i = 0; i < baseStack.length; i++) drawBaseLayer(baseStack[i].name, baseStack[i].x, groundY - i * dyB + yJump);
+
+    // Floating "Amunt els terços!" shout while a floor climbs.
+    if (state.floorMsg && state.floorMsgT < 1.5) {
+      const t = state.floorMsgT, a = t < 0.18 ? t / 0.18 : Math.max(0, 1 - (t - 0.18) / 1.32);
+      ctx.save();
+      ctx.globalAlpha = a; ctx.textAlign = "center";
+      ctx.font = "800 30px -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.lineWidth = 5; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(255,255,255,.9)";
+      ctx.strokeText(state.floorMsg, W / 2, H * 0.3 - t * 24);
+      ctx.fillStyle = COLLA.shirt; ctx.fillText(state.floorMsg, W / 2, H * 0.3 - t * 24);
+      ctx.restore(); ctx.textAlign = "start";
+    }
   }
 
   function smooth(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
@@ -1235,6 +1287,7 @@
     state.assaig = !!assaig;
     state.phase = PHASE.UP;                  // straight to play: equilibri + cap de colla
     state.solidesa = assaig ? 0.5 : 0.4;     // assaig una mica més estable
+    if (!tilt.enabled) enableTilt();          // accelerometer on (iOS asks here, on the gesture)
     Sound.setTune("toc"); Sound.ensure();
     screen = "game";
     hideScreens();
