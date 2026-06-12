@@ -203,11 +203,13 @@
   // Each pose PNG has its shirt/mocador in red; we recolour that red to the colla.
   const SPR = {
     imgs: {}, cache: {},
-    files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar" },
+    files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar", acot: "casteller_acotxador", enxw: "casteller_enxaneta", pinya: "casteller_pinya", pinyaD: "casteller_pinya_dreta", pinyaE: "casteller_pinya_esquerra" },
     geo: {
       tronc: { feetY: 1351, cx: 511, anchor: 1000 }, esquena: { feetY: 1353, cx: 513, anchor: 1037 },
       perfil: { feetY: 1368, cx: 359, anchor: 1004 }, pilar: { feetY: 1452, cx: 513, anchor: 1010 },
       enx: { feetY: 1421, cx: 522, anchor: 1050 },
+      acot: { feetY: 1031, cx: 420, anchor: 760 }, enxw: { feetY: 1120, cx: 404, anchor: 980 },
+      pinya: { feetY: 1191, headY: 121, cx: 419 }, pinyaD: { feetY: 1177, headY: 131, cx: 420 }, pinyaE: { feetY: 1177, headY: 120, cx: 421 },
     },
   };
   function loadSprites() {
@@ -694,12 +696,12 @@
       const dy = 44;                                  // vertical step per stacked layer
       const yOf = (i) => groundY - i * dy;            // layer i sits this high
       const drawLayer = (name, x, y) => {
-        if (name === "el folre") drawPinya(x, y, pr * 0.74);
-        else if (name === "les manilles") drawPinya(x, y, pr * 0.6);
-        else if (name === "els segons") drawPinya(x, y, pr * 0.5);
-        else if (name === "els terços") drawPinya(x, y, pr * 0.42);
-        else if (name === "els quarts") drawPinya(x, y, pr * 0.36);
-        else drawPinya(x, y, pr); // la pinya
+        if (name === "el folre") pinyaIllustrated(x, y, pr * 0.74);
+        else if (name === "les manilles") pinyaIllustrated(x, y, pr * 0.6);
+        else if (name === "els segons") pinyaIllustrated(x, y, pr * 0.5);
+        else if (name === "els terços") pinyaIllustrated(x, y, pr * 0.42);
+        else if (name === "els quarts") pinyaIllustrated(x, y, pr * 0.36);
+        else pinyaIllustrated(x, y, pr); // la pinya
       };
       // placed pieces
       for (let i = 0; i < b.pieces.length; i++) drawLayer(b.pieces[i].name, b.pieces[i].x, yOf(i));
@@ -733,9 +735,9 @@
     baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the base
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
     const drawBaseLayer = (name, x, y) => {
-      if (name === "el folre") drawPinya(x, y, pinyaR * 0.74);
-      else if (name === "les manilles") drawPinya(x, y, pinyaR * 0.54);
-      else drawPinya(x, y, pinyaR);
+      if (name === "el folre") pinyaIllustrated(x, y, pinyaR * 0.74);
+      else if (name === "les manilles") pinyaIllustrated(x, y, pinyaR * 0.54);
+      else pinyaIllustrated(x, y, pinyaR);
     };
     const spriteOn = !!(sprite("tronc") || sprite("pilar"));   // illustrated art available?
     const colSpacing = levelH * (spriteOn ? 0.66 : 0.74);
@@ -751,11 +753,11 @@
     // Which pose for a given floor/person (or null → vector fallback).
     const poseFor = (fi, c) => {
       const isEnx = fi === F - 1, isAcot = fi === F - 2;
-      if (isEnx) return { name: "enx", mirror: false, kid: 0.62 };
-      if (isPilar) return { name: "pilar", mirror: false, kid: isAcot ? 0.8 : 1 };
-      if (isAcot) return null; // wide acotxador → vector crouch (no sprite yet)
-      if (c.back) return { name: "esquena", mirror: false, kid: 1 };
-      return { name: "perfil", mirror: c.dx > 0, kid: 1 };
+      if (isEnx) return { name: isPilar ? "enx" : "enxw", mirror: false };
+      if (isPilar) return { name: "pilar", mirror: false };
+      if (isAcot) return { name: "acot", mirror: false };       // crouched acotxador (illustrated)
+      if (c.back) return { name: "esquena", mirror: false };
+      return { name: "perfil", mirror: c.dx > 0 };
     };
     state.geo = { levelH: levelH, groundY: groundY, cxBase: cxBase, baseY: baseY };
     const fyOf = (fi) => baseY - levelH * cum[fi];
@@ -768,7 +770,7 @@
 
     // --- the castell has fallen: castellers tumble onto the pinya ---
     if (state.phase === PHASE.FALL && state.debris) {
-      drawPinya(cxBase, groundY, pinyaR);
+      pinyaIllustrated(cxBase, groundY, pinyaR);
       const ds = state.debris.slice().sort((a, b) => a.y - b.y);
       for (const d of ds) {
         if (d.pose && drawPose(d.pose, d.x, d.y, d.rot, d.mirror, d.kid)) continue;
@@ -1014,6 +1016,27 @@
   // The pinya (no folre): everyone faces the tower and looks DOWN, huddled in a
   // dense mound around the base. We only see napes, hair and mocadors (NO faces),
   // and the front rows' arms stretch forward toward the centre.
+  // Illustrated pinya: a dense crowd built from the back/turned pinya sprites.
+  function drawPinyaSpr(cx, gy, radius) {
+    const rows = [{ dy: -50, hw: radius * 0.5, s: 8 }, { dy: -34, hw: radius * 0.72, s: 9 }, { dy: -18, hw: radius * 0.92, s: 10.5 }, { dy: 0, hw: radius * 1.06, s: 12 }];
+    rows.forEach((row, ri) => {
+      const ry = gy + row.dy, s = row.s, step = s * 1.6;
+      const count = Math.floor((row.hw * 2) / step) + 1;
+      const startX = cx - (count - 1) * step / 2 + (ri % 2) * step * 0.5;
+      const xs = []; for (let i = 0; i < count; i++) xs.push(startX + i * step);
+      xs.sort((a, b) => Math.abs(b - cx) - Math.abs(a - cx));
+      for (const x of xs) {
+        const name = x < cx - step * 0.5 ? "pinyaD" : (x > cx + step * 0.5 ? "pinyaE" : "pinya");
+        const cv = sprite(name), g = SPR.geo[name]; if (!cv || !g) continue;
+        const scale = (s * 3.4) / (g.feetY - g.headY);
+        ctx.save(); ctx.translate(x, ry + s * 1.1); ctx.drawImage(cv, -g.cx * scale, -g.feetY * scale, cv.width * scale, cv.height * scale); ctx.restore();
+      }
+    });
+  }
+  function pinyaIllustrated(cx, gy, radius) {
+    if (sprite("pinya")) drawPinyaSpr(cx, gy, radius); else drawPinya(cx, gy, radius);
+  }
+
   function drawPinya(cx, gy, radius) {
     const OUT = "#202a31";
     const rows = [

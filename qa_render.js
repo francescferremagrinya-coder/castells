@@ -396,8 +396,26 @@ const GEO = {
   tronc:{feetY:1351,cx:511,anchor:1000}, esquena:{feetY:1353,cx:513,anchor:1037},
   perfil:{feetY:1368,cx:359,anchor:1004}, pilar:{feetY:1452,cx:513,anchor:1010},
   enx:{feetY:1421,cx:522,anchor:1050},
+  acot:{feetY:1031,cx:420,anchor:760}, enxw:{feetY:1120,cx:404,anchor:980},
+  pinya:{feetY:1191,headY:121,cx:419}, pinyaD:{feetY:1177,headY:131,cx:420}, pinyaE:{feetY:1177,headY:120,cx:421},
 };
 const SP = {};
+function drawPinyaSpr(cx, gy, radius){
+  const rows=[{dy:-50,hw:radius*0.5,s:8},{dy:-34,hw:radius*0.72,s:9},{dy:-18,hw:radius*0.92,s:10.5},{dy:0,hw:radius*1.06,s:12}];
+  rows.forEach((row,ri)=>{
+    const ry=gy+row.dy, s=row.s, step=s*1.6;
+    const count=Math.floor((row.hw*2)/step)+1;
+    const startX=cx-(count-1)*step/2+(ri%2)*step*0.5;
+    const xs=[];for(let i=0;i<count;i++)xs.push(startX+i*step);
+    xs.sort((a,b)=>Math.abs(b-cx)-Math.abs(a-cx));
+    for(const x of xs){
+      let name = x < cx-step*0.5 ? 'pinyaD' : (x > cx+step*0.5 ? 'pinyaE' : 'pinya');
+      const g=GEO[name], img=SP[name]; if(!img) continue;
+      const scale=(s*3.4)/(g.feetY-g.headY);
+      ctx.save(); ctx.translate(x, ry+s*1.1); ctx.drawImage(img, -g.cx*scale, -g.feetY*scale, img.width*scale, img.height*scale); ctx.restore();
+    }
+  });
+}
 function drawSp(name, x, y, mirror, kid){
   const img=SP[name], g=GEO[name]; if(!img) return false;
   const scale=(levelH/g.anchor)*(kid||1);
@@ -424,8 +442,8 @@ function renderMulti(floors, file){
       if(isPilar){
         if(isEnx) done=drawSp('enx',x,y,false,kid);
         else done=drawSp('pilar',x,y,false,kid);
-      } else if(isEnx){ done=drawSp('enx',x,y,false,kid);
-      } else if(isAcot){ done=false; // vector crouch
+      } else if(isEnx){ done=drawSp('enxw',x,y,false,kid);
+      } else if(isAcot){ done=drawSp('acot',x,y,false,kid);
       } else { // trunk/dosos
         if(c.back) done=drawSp('esquena',x,y,false,kid);
         else done=drawSp('perfil',x,y,c.dx>0,kid); // right side mirrored
@@ -438,11 +456,11 @@ function renderMulti(floors, file){
       }
     }
   }
-  drawPinya(cxBase,groundY,Math.min(W*0.46,130+maxW*46));
+  drawPinyaSpr(cxBase,groundY,Math.min(W*0.46,130+maxW*46));
   fs.writeFileSync(file,canvas.toBuffer('image/png'));console.log('wrote',file);
 }
 (async()=>{
-  const map={tronc:'casteller_tronc',esquena:'casteller_tronc_esquena',perfil:'casteller_perfil',pilar:'casteller_pilar',enx:'casteller_enxaneta_pilar'};
+  const map={tronc:'casteller_tronc',esquena:'casteller_tronc_esquena',perfil:'casteller_perfil',pilar:'casteller_pilar',enx:'casteller_enxaneta_pilar',acot:'casteller_acotxador',enxw:'casteller_enxaneta',pinya:'casteller_pinya',pinyaD:'casteller_pinya_dreta',pinyaE:'casteller_pinya_esquerra'};
   for(const k in map){ try{ SP[k]=recolor(await napi.loadImage('assets/'+map[k]+'.png'),'#2f6f8f'); }catch(e){ console.log('miss',k,e.message); } }
   renderMulti(wideFloors(3,7),'/tmp/m3de7.png');
   renderMulti(pilarFloorsQA(5),'/tmp/mpilar.png');
