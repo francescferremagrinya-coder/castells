@@ -73,6 +73,7 @@
 <body>
 <canvas id="game"></canvas>
 <button id="soundBtn" class="sound-btn" aria-label="So">🔊</button>
+<button id="tiltBtn" class="sound-btn" aria-label="Inclinació" style="right:64px;opacity:.5">📱</button>
 
 <div id="ui">
   <div class="bars">
@@ -414,6 +415,19 @@
     if (e.key === "ArrowRight" || e.key === "d") input.right = false;
   });
 
+  // ---- Tilt control (phone gyroscope) ----
+  const tilt = { enabled: false, gamma: 0 };
+  window.addEventListener("deviceorientation", (e) => { if (e.gamma != null) tilt.gamma = e.gamma; }, true);
+  const tiltBtn = document.getElementById("tiltBtn");
+  function updateTiltBtn() { tiltBtn.style.opacity = tilt.enabled ? "1" : ".5"; }
+  function enableTilt() {
+    const DOE = window.DeviceOrientationEvent;
+    if (DOE && typeof DOE.requestPermission === "function") {
+      DOE.requestPermission().then((s) => { tilt.enabled = (s === "granted"); updateTiltBtn(); }).catch(() => {});
+    } else { tilt.enabled = true; updateTiltBtn(); }
+  }
+  tiltBtn.addEventListener("click", () => { if (tilt.enabled) { tilt.enabled = false; updateTiltBtn(); } else enableTilt(); });
+
   // ---- Logic ----
   function difficulty() {
     const heightFactor = 0.55 + state.placed * 0.26;
@@ -437,14 +451,15 @@
 
     noiseT += dt;
     const wobble = Math.sin(noiseT * 2.1) * 0.5 + Math.sin(noiseT * 5.3 + 1.3) * 0.3 + (Math.random() - 0.5) * 0.5;
-    state.leanVel += wobble * diff * 0.34 * dt;
-    state.leanVel += state.lean * diff * 1.2 * dt;     // instability (grows with height)
+    state.leanVel += wobble * diff * 0.4 * dt;
+    state.leanVel += state.lean * diff * 1.42 * dt;    // instability (grows with height) — a bit harder
     // a good base helps, but you still have to balance the rise yourself
     state.leanVel -= state.lean * state.solidesa * 1.1 * dt;
 
     const control = 2.1;
     if (input.left) state.leanVel -= control * dt;
     if (input.right) state.leanVel += control * dt;
+    if (tilt.enabled) { const g = Math.max(-1, Math.min(1, tilt.gamma / 20)); state.leanVel += g * control * 1.25 * dt; }
 
     state.leanVel *= Math.pow(0.05, dt);
     state.lean += state.leanVel * dt;
@@ -507,6 +522,7 @@
     const side = Math.sign(state.lean) || 1;
     state.debris = (state.pos || []).map((p) => ({
       x: p.x, y: p.y, rot: p.rot, idx: p.idx, isTop: p.isTop, sc: p.sc, back: p.back, helmet: p.helmet,
+      pose: p.pose, mirror: p.mirror, kid: p.kid,
       vx: side * (40 + Math.random() * 120) + (Math.random() - 0.5) * 60,
       vy: -30 - Math.random() * 70,
       vr: (Math.random() - 0.5) * 7,
