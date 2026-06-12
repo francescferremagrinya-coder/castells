@@ -401,15 +401,15 @@ const GEO = {
 };
 const SP = {};
 function drawPinyaSpr(cx, gy, radius){
-  const rows=[{dy:-50,hw:radius*0.5,s:8},{dy:-34,hw:radius*0.72,s:9},{dy:-18,hw:radius*0.92,s:10.5},{dy:0,hw:radius*1.06,s:12}];
+  const rows=[{dy:-46,hw:radius*0.55,s:8.5},{dy:-31,hw:radius*0.76,s:9.5},{dy:-16,hw:radius*0.95,s:11},{dy:0,hw:radius*1.08,s:12.5}];
   rows.forEach((row,ri)=>{
-    const ry=gy+row.dy, s=row.s, step=s*1.6;
+    const ry=gy+row.dy, s=row.s, step=s*1.12;
     const count=Math.floor((row.hw*2)/step)+1;
     const startX=cx-(count-1)*step/2+(ri%2)*step*0.5;
     const xs=[];for(let i=0;i<count;i++)xs.push(startX+i*step);
     xs.sort((a,b)=>Math.abs(b-cx)-Math.abs(a-cx));
     for(const x of xs){
-      let name = x < cx-step*0.5 ? 'pinyaD' : (x > cx+step*0.5 ? 'pinyaE' : 'pinya');
+      let name = x < cx-step*0.4 ? 'pinyaE' : (x > cx+step*0.4 ? 'pinyaD' : 'pinya');
       const g=GEO[name], img=SP[name]; if(!img) continue;
       const scale=(s*3.4)/(g.feetY-g.headY);
       ctx.save(); ctx.translate(x, ry+s*1.1); ctx.drawImage(img, -g.cx*scale, -g.feetY*scale, img.width*scale, img.height*scale); ctx.restore();
