@@ -22,10 +22,13 @@
 
   .status { position: absolute; top: 86px; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 700; color: #2c3942; background: rgba(255,255,255,.7); padding: 4px 14px; border-radius: 20px; white-space: nowrap; z-index: 4; }
 
-  .ctrls { position: absolute; bottom: 0; left: 0; right: 0; height: 50%; display: flex; pointer-events: auto; }
-  .ctrl { flex: 1; display: flex; align-items: center; justify-content: center; padding-bottom: 0; }
-  .ctrl span { font-size: 40px; width: 76px; height: 76px; line-height: 76px; text-align: center; border-radius: 50%; color: rgba(28,42,51,.6); background: rgba(255,255,255,.4); box-shadow: 0 2px 8px rgba(0,0,0,.12); user-select: none; transition: transform .08s, background .08s; }
-  .ctrl.active span { background: rgba(255,255,255,.7); color: rgba(28,42,51,.9); transform: scale(.9); }
+  .ctrls { position: absolute; bottom: 0; left: 0; right: 0; height: 116px; display: flex; align-items: stretch; gap: 8px; padding: 8px 8px 12px; pointer-events: none; }
+  .ctrl, .capbtn { pointer-events: auto; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border: none; border-radius: 16px; background: rgba(255,255,255,.5); box-shadow: 0 2px 8px rgba(0,0,0,.12); color: #1c2a33; font-weight: 700; font-size: 14px; user-select: none; cursor: pointer; transition: transform .08s, background .08s; }
+  .ctrl span { font-size: 34px; color: rgba(28,42,51,.7); }
+  .capbtn .ic { font-size: 28px; margin-bottom: 2px; }
+  .capbtn.up { flex: 1.5; background: rgba(76,160,90,.32); }
+  .capbtn.down { flex: 1.2; background: rgba(201,75,46,.28); }
+  .ctrl.active, .capbtn:active { background: rgba(255,255,255,.85); transform: scale(.97); }
 
   .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; pointer-events: auto; background: rgba(207,227,238,.94); overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #reptesScreen { justify-content: flex-start; padding-top: 24px; padding-bottom: 24px; }
@@ -86,6 +89,8 @@
 
   <div class="ctrls">
     <div class="ctrl" id="ctrlL"><span>◀</span></div>
+    <button class="capbtn up" id="upBtn"><span class="ic">🎩</span>Amunt</button>
+    <button class="capbtn down" id="downBtn"><span class="ic">⬇️</span>Avall</button>
     <div class="ctrl" id="ctrlR"><span>▶</span></div>
   </div>
 </div>
@@ -385,12 +390,14 @@
       debris: null,     // tumbling castellers when it falls
       fallT: 0,
       geo: { levelH: 46, groundY: 0, cxBase: 0, baseY: 0 },
-      solidesa: 1,      // base quality (0..1) from the building phase
-      baseOffsetX: 0,   // horizontal offset of the top of the base you stacked
-      baseStack: null,  // placed reinforcement rings (pinya/folre/manilles)
-      floorOffset: [],  // x offset of each manually-placed trunk floor
-      floor0: 1,        // first floor that rises automatically
-      build: null,      // building-phase state
+      solidesa: 0.4,    // base steadiness
+      baseOffsetX: 0,
+      baseStack: null,
+      floorOffset: [],
+      floor0: 1,        // bottom floor that always stays
+      carregat: false,  // has it reached the top?
+      wantUp: false,    // cap de colla tapped → send next floor up
+      wantDown: false,  // tirar avall
     };
   }
 
@@ -407,10 +414,16 @@
     el.addEventListener("pointerleave", off);
   }
   bind(ctrlL, "left"); bind(ctrlR, "right");
+  function tapUp() { if (state) state.wantUp = true; }
+  function tapDown() { if (state) state.wantDown = true; }
+  const upBtn = document.getElementById("upBtn"), downBtn = document.getElementById("downBtn");
+  upBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); tapUp(); });
+  downBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); tapDown(); });
   window.addEventListener("keydown", (e) => {
-    if (state && state.phase === PHASE.BUILD && (e.key === " " || e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp")) { e.preventDefault(); buildTap(); return; }
     if (e.key === "ArrowLeft" || e.key === "a") input.left = true;
     if (e.key === "ArrowRight" || e.key === "d") input.right = true;
+    if (e.key === "ArrowUp" || e.key === "w" || e.key === " ") { e.preventDefault(); tapUp(); }
+    if (e.key === "ArrowDown" || e.key === "s") { e.preventDefault(); tapDown(); }
   });
   window.addEventListener("keyup", (e) => {
     if (e.key === "ArrowLeft" || e.key === "a") input.left = false;
@@ -478,39 +491,38 @@
 
     if (state.phase === PHASE.UP) {
       if (state.climbing) {
-        state.climbProg += dt * 0.55;
+        state.climbProg += dt * (state.goingUp ? 0.62 : 0.6);
         if (state.climbProg >= 1) {
-          state.climbing = false; state.climbProg = 0; state.placed++;
-          state.shake = Math.min(1, state.shake + 0.3);
-          if (state.placed >= F) { state.phase = PHASE.ALETA; state.aletaT = 0; if (Sound.isOn()) SFX.applause(3.2); } // carregat → aplaudiments
-          else state.settle = 0.45;
+          state.climbing = false; state.climbProg = 0;
+          state.shake = Math.min(1, state.shake + 0.22);
+          if (state.goingUp) {
+            state.placed++;
+            if (state.placed >= F) { state.carregat = true; state.phase = PHASE.ALETA; state.aletaT = 0; Sound.setTune("carregada"); if (Sound.isOn()) SFX.applause(3.2); }
+          } else {
+            if (state.placed <= state.floor0) {
+              if (state.carregat) win();
+              else { state.result = { ok: false, reason: "Has desmuntat el castell sense carregar." }; state.phase = PHASE.WIN; setTimeout(showEnd, 500); }
+            }
+          }
         }
       } else {
-        state.settle -= dt;
-        if (state.settle <= 0 && Math.abs(state.lean) < 0.5) {
-          state.climbing = true; state.climbProg = 0;
-          if (state.placed === F - 1) Sound.setTune("carregada"); // enxaneta puja → toc de carregada
+        // idle: the player decides — cap de colla (up) or tirar avall (down)
+        if (state.wantUp) {
+          state.wantUp = false;
+          if (state.placed < F && Math.abs(state.lean) < 0.6) {
+            state.climbing = true; state.goingUp = true; state.climbProg = 0;
+            if (state.placed === F - 1) Sound.setTune("carregada");
+          }
+        } else if (state.wantDown) {
+          state.wantDown = false;
+          if (state.placed > state.floor0 && Math.abs(state.lean) < 0.6) {
+            state.placed--; state.goingUp = false; state.climbing = true; state.climbProg = 0;
+          }
         }
       }
     } else if (state.phase === PHASE.ALETA) {
       state.aletaT += dt;
-      if (state.aletaT > 1.5) { state.phase = PHASE.DOWN; state.goingUp = false; state.settle = 0.4; }
-    } else if (state.phase === PHASE.DOWN) {
-      if (state.climbing) {
-        // the detached casteller clambers all the way down to the pinya
-        state.climbProg += dt * 0.5;
-        if (state.climbProg >= 1) {
-          state.climbing = false; state.climbProg = 0;
-          if (state.placed <= state.floor0) win();
-          else state.settle = 0.3;
-        }
-      } else {
-        state.settle -= dt;
-        if (state.settle <= 0 && Math.abs(state.lean) < 0.55) {
-          if (state.placed <= state.floor0) { win(); }   // the base you built stays
-          else { state.placed--; state.climbing = true; state.climbProg = 0; }
-        }
-      }
+      if (state.aletaT > 1.3) { state.phase = PHASE.UP; }  // back to play: now tira avall per descarregar
     }
     updateUI();
   }
@@ -622,9 +634,12 @@
     balMark.style.background = d > 0.66 ? "#c94b2e" : (d > 0.4 ? "#e6a23c" : "#1c1c1c");
     fatFill.style.width = (state.fatigue * 100) + "%";
     let t = "";
-    if (state.phase === PHASE.UP) t = state.climbing ? "Puja el " + levelName(state.placed) + "…" : "Aguanta!";
-    else if (state.phase === PHASE.ALETA) t = "L'enxaneta fa l'aleta! 🙌";
-    else if (state.phase === PHASE.DOWN) t = "Descarregant… aguanta!";
+    if (state.phase === PHASE.ALETA) t = "L'enxaneta fa l'aleta! 🙌";
+    else if (state.phase === PHASE.UP) {
+      if (state.climbing) t = state.goingUp ? "Pugen…" : "Baixen…";
+      else if (state.carregat) t = "Carregat! Tira AVALL per descarregar";
+      else t = "Estable? Toca AMUNT 🎩";
+    }
     statusEl.textContent = t;
   }
 
@@ -1203,8 +1218,8 @@
     curCastell = castell || curCastell;
     newGame();
     state.assaig = !!assaig;
-    if (assaig) { state.solidesa = 0; state.phase = PHASE.UP; } // assaig = només equilibri
-    else { startBuild(); }                                       // repte = munta la base primer
+    state.phase = PHASE.UP;                  // straight to play: equilibri + cap de colla
+    state.solidesa = assaig ? 0.5 : 0.4;     // assaig una mica més estable
     Sound.setTune("toc"); Sound.ensure();
     screen = "game";
     hideScreens();
