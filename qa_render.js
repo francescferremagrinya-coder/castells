@@ -440,8 +440,10 @@ function renderMulti(floors, file, base){
   const groundY=H*0.84; drawPlaca(groundY);
   const F=floors.length, maxW=Math.max.apply(null,floors), isPilar=maxW===1;
   let acc=0; for(let i=0;i<F;i++) acc+=floorMul(i,F,isPilar);
-  levelH=Math.min(64,(groundY-H*0.05)/(acc+1.5));
-  const dyB=34, baseY=groundY-levelH*0.8-(base.length-1)*dyB+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
+  const nReinf=base.length-1;
+  levelH=Math.min(64,(groundY-H*0.05)/(acc+nReinf+1.5));
+  const baseLift=levelH*0.8, baseLayerY=(i)=>groundY-(i===0?0:baseLift+(i-1)*levelH);
+  const baseY=groundY-baseLift-nReinf*levelH+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
   const fy=[];let c2=0;for(let i=0;i<F;i++){fy[i]=baseY-levelH*c2;c2+=floorMul(i,F,isPilar);}
   const kidScale=(fi)=> fi===F-1?0.72 : fi===F-2?0.74 : (!isPilar&&fi===F-3&&floors[fi]>=2?0.8:1);
   const yLift=(fi)=> fi===F-1?levelH*0.14:0;
@@ -471,7 +473,7 @@ function renderMulti(floors, file, base){
   const pinyaR=Math.min(W*0.46,130+maxW*46);
   const pinyaN=pinyaPositions(cxBase,groundY,pinyaR).length;
   base.forEach((name,i)=>{
-    const y=groundY-i*dyB;
+    const y=baseLayerY(i);
     if(name==='el folre') drawRing(cxBase,y,pinyaR*0.82,Math.round(pinyaN*0.5));
     else if(name==='les manilles') drawRing(cxBase,y,pinyaR*0.6,Math.round(pinyaN*0.25));
     else drawPinyaSpr(cxBase,y,pinyaR);
@@ -483,6 +485,6 @@ function renderMulti(floors, file, base){
   for(const k in map){ try{ SP[k]=recolor(await napi.loadImage('assets/'+map[k]+'.png'),'#2f6f8f'); }catch(e){ console.log('miss',k,e.message); } }
   renderMulti(wideFloors(3,7),'/tmp/m3de7.png');
   renderMulti(pilarFloorsQA(5),'/tmp/mpilar.png');
-  renderMulti(pilarFloorsQA(8),'/tmp/mp8.png',['la pinya','el folre','les manilles']);
+  renderMulti(pilarFloorsQA(8-2),'/tmp/mp8.png',['la pinya','el folre','les manilles']);
 })();
 function pilarFloorsQA(num){const f=[];for(let k=0;k<num-1;k++)f.push(1);return f;}

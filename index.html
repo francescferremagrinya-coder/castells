@@ -291,6 +291,9 @@
   // on top of the pinya (pis 1). Pilars are 1-wide; wide castells add the pom de
   // dalt (dosos=2, acotxador=1, enxaneta=1). Points: official Concurs (RANKING.md).
   function pilarFloors(num) { const f = []; for (let k = 0; k < num - 1; k++) f.push(1); return f; }
+  // Pilar with reinforcement: folre/manilles are pisos of their own, so the visible
+  // pilar castellers are fewer (pinya=1, folre=2, manilles=3, first casteller=4…).
+  function pilarFloorsR(num, reinf) { const f = []; for (let k = 0; k < num - 1 - reinf; k++) f.push(1); return f; }
   function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
   const peopleOf = (c) => c.floors.reduce((a, b) => a + b, 0);
   // gamma: 0 = baixa (fàcil), 1 = superior (mitjana), 2 = extra (difícil)
@@ -303,8 +306,8 @@
     { id: "p6", name: "Pilar de 6", gamma: 1, floors: pilarFloors(6), diff: 1.3, pts: { carr: 580, desc: 665 } },
     { id: "t4de8", name: "4 de 8", gamma: 1, floors: wideFloors(4, 8), diff: 1.4, pts: { carr: 550, desc: 635 } },
     { id: "t3de8", name: "3 de 8", gamma: 2, floors: wideFloors(3, 8), diff: 1.5, pts: { carr: 610, desc: 700 } },
-    { id: "p7", name: "Pilar de 7 f", gamma: 2, floors: pilarFloors(7), diff: 1.6, folre: true, pts: { carr: 835, desc: 960 } },
-    { id: "p8", name: "Pilar de 8 fm", gamma: 2, floors: pilarFloors(8), diff: 1.72, folre: true, manilles: true, pts: { carr: 1925, desc: 2210 } },
+    { id: "p7", name: "Pilar de 7 f", gamma: 2, floors: pilarFloorsR(7, 1), diff: 1.6, folre: true, pts: { carr: 835, desc: 960 } },
+    { id: "p8", name: "Pilar de 8 fm", gamma: 2, floors: pilarFloorsR(8, 2), diff: 1.72, folre: true, manilles: true, pts: { carr: 1925, desc: 2210 } },
   ];
   const GAMMES = ["Gamma baixa", "Gamma superior", "Gamma extra"];
   function gammaUnlocked(g) { return g === 0 || CASTELLS.filter((c) => c.gamma === g - 1).every((c) => save.done[c.id]); }
@@ -462,6 +465,8 @@
     if (fi === F - 1) return "l'enxaneta";
     if (fi === F - 2) return "l'acotxador";
     if (fi === F - 3 && FLOORS[fi] === 2) return "els dosos";
+    // pilar: real pis number (pinya=1, folre=2, manilles=3, first casteller=4…)
+    if (Math.max.apply(null, FLOORS) === 1) { const pis = (state && state.pisBase || 1) + fi + 1; return ORD[pis - 2] || ("el pis " + pis); }
     return ORDF[fi] || "amunt";
   }
 
@@ -812,14 +817,16 @@
     const totalCum = acc;
     const tremor = Math.max(0, Math.abs(state.lean) - 0.45) * 7;
     cxBase = W / 2 + (state.baseOffsetX || 0) + (state.shake ? (Math.random() - 0.5) * state.shake * 7 : 0) + (Math.random() - 0.5) * tremor;
-    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + 1.5));
-    // base layers (pinya + folre + manilles) you stacked sit below the trunk
+    // base layers (pinya + folre + manilles). Pinya = pis 1, folre = pis 2,
+    // manilles = pis 3: each reinforcement ring stands a FULL floor on the one
+    // below (no overlap), and the trunk starts on top of the highest one.
     const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
-    const dyB = 34, nBelow = baseStack.length;
-    // the segons rest on the pinya's shoulders → lift the trunk ~0.8 floors so the
-    // full-size pinya crowd doesn't bury the first floor
-    const pinyaTop = groundY - levelH * 0.8 - (nBelow - 1) * dyB;
-    baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the base
+    const nReinf = baseStack.length - 1;     // folre + manilles
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf + 1.5));
+    const baseLift = levelH * 0.8;           // pinya shoulders → first layer above it
+    // y of base layer i (0 = pinya on the ground, then a full floor per ring)
+    const baseLayerY = (i) => groundY - (i === 0 ? 0 : baseLift + (i - 1) * levelH);
+    baseY = groundY - baseLift - nReinf * levelH + levelH * 0.06; // trunk feet rest above the rings
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
     // folre = half the pinya's people, manilles = a quarter (each a tighter ring).
     const pinyaN = sprite("pinya") ? pinyaPositions(cxBase, groundY, pinyaR).length : 0;
@@ -938,9 +945,9 @@
       for (let i = 0; i < state.placed; i++) drawFloor(fyOf(i) + yJump, i, false, 2);
     }
 
-    // Base layers drawn last (in front): pinya at the bottom, then folre/manilles
-    // stacked at the very spots where you placed them (they hop too when we win).
-    for (let i = 0; i < baseStack.length; i++) drawBaseLayer(baseStack[i].name, baseStack[i].x, groundY - i * dyB + yJump);
+    // Base layers: pinya on the ground, then folre and manilles each a full floor
+    // higher (no overlap). Drawn bottom→top so the higher ring covers the lower.
+    for (let i = 0; i < baseStack.length; i++) drawBaseLayer(baseStack[i].name, baseStack[i].x, baseLayerY(i) + yJump);
 
     // Floating "Amunt els terços!" shout while a floor climbs.
     if (state.floorMsg && state.floorMsgT < 1.5) {
@@ -1417,6 +1424,7 @@
     if (curCastell.folre) bs.push({ name: "el folre", x: W / 2 });
     if (curCastell.manilles) bs.push({ name: "les manilles", x: W / 2 });
     state.baseStack = bs;
+    state.pisBase = bs.length;               // pinya (+folre +manilles) = pisos already on the base
     state.phase = PHASE.UP;                  // straight to play: equilibri + cap de colla
     state.solidesa = assaig ? 0.5 : 0.4;     // assaig una mica més estable
     if (!tilt.enabled) enableTilt();          // accelerometer on (iOS asks here, on the gesture)
