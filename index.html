@@ -100,6 +100,13 @@
   .btn:disabled { opacity: .4; pointer-events: none; }
   .btn.locked { opacity: .72; }
   .act-locked { width: min(90%,360px); margin: 8px auto 22px; background: rgba(255,255,255,.82); border: 2px solid #dfe6ea; border-radius: 14px; padding: 18px 18px; font-size: 15px; line-height: 1.5; color: #2c3942; }
+  .act-round.lock { opacity: .55; cursor: default; }
+  .act-round .ar-score { float: right; font-size: 13px; font-weight: 800; color: #2f6f8f; }
+  .sb-row { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; font-weight: 700; color: #2c3942; background: rgba(255,255,255,.6); border-radius: 8px; padding: 9px 14px; }
+  .sb-row.win { background: rgba(76,160,90,.25); } .sb-row.lose { background: rgba(201,75,46,.2); }
+  /* turn banner during a competition */
+  .turn-banner { position: absolute; top: 48px; left: 50%; transform: translateX(-50%); z-index: 5; font-size: 14px; font-weight: 800; letter-spacing: .02em; color: #fff; background: rgba(28,42,51,.82); padding: 6px 16px; border-radius: 20px; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  .turn-banner.hidden { display: none; }
 
   .sound-btn { position: fixed; top: 14px; right: 14px; z-index: 6; width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(255,255,255,.72); box-shadow: 0 1px 4px rgba(0,0,0,.18); font-size: 20px; line-height: 42px; text-align: center; cursor: pointer; pointer-events: auto; padding: 0; }
   .sound-btn:active { transform: scale(.92); }
@@ -111,6 +118,7 @@
 <button id="tiltBtn" class="sound-btn" aria-label="Inclinació" style="right:64px;opacity:.5">📱</button>
 
 <div id="ui">
+  <div class="turn-banner hidden" id="turnBanner"></div>
   <div class="bars">
     <div class="label">Equilibri</div>
     <div class="bal-wrap"><div class="bal-zone"></div><div class="bal-mark" id="balMark"></div></div>
@@ -170,10 +178,18 @@
   <button class="btn-ghost" id="reptesBack">Enrere</button>
 </div>
 
+<!-- Actuació: tria de poble (competició) -->
+<div class="overlay hidden" id="pobleScreen">
+  <h1 style="margin:0 0 2px">Actuació</h1>
+  <div class="sub" style="margin-bottom:6px">Tria una diada. Competeixes contra la colla rival: has de sumar més punts en 4 rondes.</div>
+  <div class="act-rounds" id="pobleList"></div>
+  <button class="btn-ghost" id="pobleBack">Enrere</button>
+</div>
+
 <!-- Actuació (composer) -->
 <div class="overlay hidden" id="capScreen">
-  <h1 style="margin:0 0 2px">Actuació</h1>
-  <div class="sub" style="margin-bottom:8px">Munta la teva actuació: <b>3 castells</b> i el <b>pilar de comiat</b>. Toca una ronda per canviar-la (només castells desbloquejats a l'Assaig).</div>
+  <h1 style="margin:0 0 2px">La teva actuació</h1>
+  <div class="sub" id="capSub" style="margin-bottom:8px">Munta 3 castells i el pilar de comiat amb els que tens desbloquejats.</div>
   <div class="act-rounds" id="actRounds"></div>
   <button class="btn" id="actStart">Comença l'actuació</button>
   <button class="btn-ghost" id="capBack" style="margin-top:12px">Enrere</button>
@@ -313,6 +329,20 @@
     { id: "p8", name: "Pilar de 8 fm", gamma: 2, floors: pilarFloorsR(8, 2), diff: 1.72, folre: true, manilles: true, pts: { carr: 1925, desc: 2210 } },
   ];
   const GAMMES = ["Gamma baixa", "Gamma superior", "Gamma extra"];
+  const cById = (id) => CASTELLS.find((c) => c.id === id);
+  // Actuacions de poble: competeixes contra una colla rival que fa la seva ronda
+  // (animada) abans de cada ronda teva. Com més alt el nivell, més punts has de
+  // poder sumar → t'obliga a desbloquejar castells alts a l'Assaig. `fail` = prob.
+  // que el rival faci llenya en un castell.
+  const POBLES = [
+    { id: "vn", poble: "Festa Major del Vendrell", rival: "els Bordegassos", color: "#7d5ba6", lineup: ["t3de6", "t4de7", "t3de7", "p5"], fail: 0.26 },
+    { id: "tgn", poble: "Santa Tecla — Tarragona", rival: "els Xiquets", color: "#2bb3a3", lineup: ["t4de7", "t3de7", "t4de8", "p6"], fail: 0.22 },
+    { id: "vfca", poble: "Festa Major de Vilafranca", rival: "els Verds", color: "#3a8c4f", lineup: ["t3de7", "t4de8", "t3de8", "p6"], fail: 0.18 },
+    { id: "valls", poble: "Santa Úrsula — Valls", rival: "la Colla Vella", color: "#7a2230", lineup: ["t4de8", "t3de8", "t3de8", "p7"], fail: 0.16 },
+    { id: "merce", poble: "La Mercè — Barcelona", rival: "els Capgrossos", color: "#c8402f", lineup: ["t3de8", "t3de8", "t3de8", "p8"], fail: 0.13 },
+  ];
+  const pobleTarget = (p) => p.lineup.reduce((s, id) => s + cById(id).pts.desc, 0);
+  function pobleUnlocked(i) { return i === 0 || (save.wonPoble && save.wonPoble[POBLES[i - 1].id]); }
   function gammaUnlocked(g) { return g === 0 || CASTELLS.filter((c) => c.gamma === g - 1).every((c) => save.done[c.id]); }
   function castellUnlocked(c) {
     if (!gammaUnlocked(c.gamma)) return false;
@@ -322,13 +352,14 @@
   const castName = (c) => c.name;
   const isPilarC = (c) => Math.max.apply(null, c.floors) === 1;
   // Actuació (performance) state.
-  let actuacio = null;                 // { rounds:[4], idx, total, results:[] }
+  let actuacio = null;                 // competition state (vs a rival colla)
   let actPicks = [null, null, null, null];
   let actNextAction = null;
+  let curPoble = null;
 
   // ---- Save / load ----
   const SAVE_KEY = "castells_save_v3";
-  let save = { colla: null, best: {}, done: {}, castellers: 25 };
+  let save = { colla: null, best: {}, done: {}, castellers: 25, wonPoble: {} };
   function loadSave() {
     try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s); } catch (e) {}
   }
@@ -459,6 +490,10 @@
       celebT: 0,        // celebration jump clock
       floorMsg: "",     // floating "Amunt els terços!" label
       floorMsgT: 99,
+      auto: false,      // rival auto-pilot (non-interactive)
+      rival: false,     // is this the rival's turn?
+      autoT: 0,
+      scriptFall: -1,   // floor at which the rival is scripted to make llenya (−1 = none)
     };
   }
 
@@ -556,11 +591,25 @@
     state.leanVel *= Math.pow(0.05, dt);
     state.lean += state.leanVel * dt;
 
+    // Rival auto-pilot: centres itself, rises on its own and then descarrega —
+    // unless it's scripted to make llenya at a given floor.
+    if (state.auto) {
+      state.lean += (0 - state.lean) * Math.min(1, dt * 5);
+      state.autoT += dt;
+      if (state.phase === PHASE.UP && !state.climbing && state.autoT > 0.5) {
+        state.autoT = 0;
+        if (!state.carregat) {
+          if (state.scriptFall >= 0 && state.placed >= state.scriptFall) { fall("Han fet llenya."); return; }
+          state.wantUp = true;
+        } else { state.wantDown = true; }
+      }
+    }
+
     // Fatigue — tuned so a clean carregar+descarregar is achievable.
     const drain = (0.015 + state.placed * 0.0035) * (state.phase === PHASE.UP ? 1 : 0.85) * (state.assaig ? 0.25 : 1);
     state.fatigue -= drain * dt;
-    if (state.assaig) {
-      state.lean = Math.max(-0.92, Math.min(0.92, state.lean)); // free mode: never falls
+    if (state.assaig || state.auto) {
+      state.lean = Math.max(-0.92, Math.min(0.92, state.lean)); // free / rival mode: never falls on its own
     } else {
       if (state.fatigue <= 0) { state.fatigue = 0; fall("Els castellers no han aguantat el pes."); return; }
       if (Math.abs(state.lean) >= 1) { fall("Ha perdut l'equilibri."); return; }
@@ -714,7 +763,8 @@
     let t = "";
     if (state.phase === PHASE.ALETA) t = "L'enxaneta fa l'aleta! 🙌";
     else if (state.phase === PHASE.UP) {
-      if (state.climbing) t = state.goingUp ? "Pugen…" : "Baixen…";
+      if (state.auto) t = state.carregat ? "Descarreguen…" : "Pugen el castell…";
+      else if (state.climbing) t = state.goingUp ? "Pugen…" : "Baixen…";
       else if (state.carregat) t = "Carregat! Tira AVALL per descarregar";
       else t = "Estable? Toca AMUNT 🗣️";
     }
@@ -1232,15 +1282,18 @@
   // ---- Screens ----
   const uiEl = document.getElementById("ui");
   const barsEl = document.querySelector(".bars");
+  const ctrlsEl = document.querySelector(".ctrls");
+  const turnBanner = document.getElementById("turnBanner");
   const creatorScreen = document.getElementById("creatorScreen");
   const homeScreen = document.getElementById("homeScreen");
   const reptesScreen = document.getElementById("reptesScreen");
+  const pobleScreen = document.getElementById("pobleScreen");
   const capScreen = document.getElementById("capScreen");
   const actScreen = document.getElementById("actScreen");
   const endScreen = document.getElementById("endScreen");
   function hideScreens() {
     uiEl.style.display = "none";
-    [creatorScreen, homeScreen, reptesScreen, capScreen, actScreen, endScreen].forEach((s) => s.classList.add("hidden"));
+    [creatorScreen, homeScreen, reptesScreen, pobleScreen, capScreen, actScreen, endScreen].forEach((s) => s.classList.add("hidden"));
   }
   const collaNameInput = document.getElementById("collaName");
   const swatchesEl = document.getElementById("swatches");
@@ -1298,6 +1351,7 @@
 
   function showHome() {
     screen = "menu"; Sound.stop(); actuacio = null;
+    if (save.colla && COLLA.shirt !== save.colla.color) setShirt(save.colla.color); // restore after a rival turn
     const actBtn = document.getElementById("actuacioBtn");
     const open = actuacioUnlocked();
     actBtn.textContent = open ? "Actuació" : "Actuació 🔒";
@@ -1378,43 +1432,93 @@
       '<div class="act-locked">🔒 Per fer una <b>actuació</b> necessites <b>3 castells</b> i <b>1 pilar</b> desbloquejats a l\'Assaig.' +
       '<br><br>Ara tens <b>' + Math.min(nc, 3) + '/3 castells</b> i <b>' + Math.min(np, 1) + '/1 pilar</b>.</div>';
   }
+  const roundOutcome = (c) => state.result.ok ? { pts: c.pts.desc, label: "Descarregat!", emoji: "🎉", ok: true }
+    : state.carregat ? { pts: c.pts.carr, label: "Carregat… llenya!", emoji: "😬", ok: false }
+    : { pts: 0, label: "Llenya!", emoji: "💥", ok: false };
+  const sbRow = (name, score, lead) => '<div class="sb-row ' + (lead ? "win" : "lose") + '"><span>' + name + '</span><span>' + score + ' pts</span></div>';
+
   function showActuacio() {
     screen = "menu"; Sound.stop(); actuacio = null;
-    hideScreens(); capScreen.classList.remove("hidden");
-    const locked = !actuacioUnlocked();
-    document.getElementById("actStart").style.display = locked ? "none" : "";
-    if (locked) { renderActLocked(); return; }
-    // keep prior picks if still valid, else default
-    const valid = actPicks.every((p, i) => p && castellUnlocked(p) && (i === 3 ? isPilarC(p) : !isPilarC(p)));
+    if (!actuacioUnlocked()) {            // locked: show the requirement in the composer screen
+      hideScreens(); capScreen.classList.remove("hidden");
+      document.getElementById("capSub").textContent = "";
+      document.getElementById("actStart").style.display = "none";
+      renderActLocked(); return;
+    }
+    showPobles();
+  }
+  function showPobles() {
+    screen = "menu"; Sound.stop();
+    const el = document.getElementById("pobleList"); el.innerHTML = "";
+    POBLES.forEach((p, i) => {
+      const open = pobleUnlocked(i), won = save.wonPoble && save.wonPoble[p.id];
+      const div = document.createElement("div");
+      div.className = "act-round" + (open ? "" : " lock");
+      div.innerHTML = '<div class="ar-score">' + (open ? (pobleTarget(p) + " pts") : "🔒") + '</div>' +
+        '<div class="ar-lbl">' + (won ? "✓ guanyada · diada" : "diada") + '</div>' +
+        '<div class="ar-name">' + p.poble + '</div>' +
+        '<div class="ar-meta">Rivals: ' + p.rival + (open ? " · toca per competir" : " · guanya l'anterior") + '</div>';
+      if (open) div.addEventListener("click", () => pickPoble(i));
+      el.appendChild(div);
+    });
+    hideScreens(); document.getElementById("pobleScreen").classList.remove("hidden");
+  }
+  function pickPoble(i) {
+    curPoble = POBLES[i];
+    const valid = actPicks.every((p, k) => p && castellUnlocked(p) && (k === 3 ? isPilarC(p) : !isPilarC(p)));
     if (!valid) actPicks = defaultActPicks();
+    document.getElementById("capSub").innerHTML = "Repte: <b>" + curPoble.poble + "</b> · Rivals <b>" + curPoble.rival + "</b> (~" + pobleTarget(curPoble) + " pts).";
+    document.getElementById("actStart").style.display = "";
     renderActRounds();
+    hideScreens(); capScreen.classList.remove("hidden");
   }
   function startActuacio() {
-    if (actPicks.some((p) => !p)) return;
-    actuacio = { rounds: actPicks.slice(), idx: 0, total: 0, results: [] };
+    if (!curPoble || actPicks.some((p) => !p)) return;
+    actuacio = {
+      poble: curPoble, rounds: actPicks.slice(), rivalRounds: curPoble.lineup.map(cById),
+      idx: 0, total: 0, rivalTotal: 0, results: [], rivalResults: [], myColor: COLLA.shirt,
+    };
     startActRound();
   }
+  // a round = the rival's (animated) turn first, then yours
   function startActRound() {
-    begin(actuacio.rounds[actuacio.idx], false);
-    state.actuacio = actuacio;
+    const a = actuacio, c = a.rivalRounds[a.idx];
+    setShirt(a.poble.color);
+    const sf = Math.random() < a.poble.fail ? (1 + Math.floor(Math.random() * Math.max(1, c.floors.length - 1))) : -1;
+    begin(c, false, { auto: true, rival: true, scriptFall: sf, banner: "Torn de " + a.poble.rival });
+    state.actuacio = a;
+  }
+  function startMyRound() {
+    const a = actuacio;
+    setShirt(a.myColor);
+    begin(a.rounds[a.idx], false, { banner: "El teu torn — " + COLLA.name });
+    state.actuacio = a;
+  }
+  function endRivalRound() {
+    const a = state.actuacio, c = a.rivalRounds[a.idx], o = roundOutcome(c);
+    a.rivalTotal += o.pts; a.rivalResults.push({ name: c.name, pts: o.pts, label: o.label });
+    screen = "menu"; hideScreens();
+    document.getElementById("actEmoji").textContent = o.emoji;
+    document.getElementById("actTitle").textContent = a.poble.rival + " — ronda " + (a.idx + 1) + "/4";
+    document.getElementById("actSub").textContent = c.name + ": " + o.label + " (+" + o.pts + ")";
+    document.getElementById("actBreak").innerHTML = sbRow(COLLA.name, a.total, a.total >= a.rivalTotal) + sbRow(a.poble.rival, a.rivalTotal, a.rivalTotal > a.total);
+    const nb = document.getElementById("actNext"); nb.style.display = ""; nb.textContent = "El teu torn: " + a.rounds[a.idx].name + " ▶";
+    actNextAction = startMyRound;
+    actScreen.classList.remove("hidden");
   }
   function showActRoundEnd() {
-    const a = state.actuacio, r = state.result, c = a.rounds[a.idx];
-    let pts = 0, label, emoji;
-    if (r.ok) { pts = c.pts.desc; label = "Descarregat!"; emoji = "🎉"; save.done[c.id] = true; }
-    else if (state.carregat) { pts = c.pts.carr; label = "Carregat… llenya!"; emoji = "😬"; }
-    else { pts = 0; label = "Llenya!"; emoji = "💥"; }
-    if (pts > (save.best[c.id] || 0)) save.best[c.id] = pts;
-    a.total += pts; a.results.push({ name: c.name, pts: pts, label: label });
+    const a = state.actuacio, c = a.rounds[a.idx], o = roundOutcome(c);
+    if (o.ok) save.done[c.id] = true;
+    if (o.pts > (save.best[c.id] || 0)) save.best[c.id] = o.pts;
+    a.total += o.pts; a.results.push({ name: c.name, pts: o.pts, label: o.label });
     a.idx++; persist();
     screen = "menu"; hideScreens();
     if (a.idx < a.rounds.length) {
-      document.getElementById("actEmoji").textContent = emoji;
-      document.getElementById("actTitle").textContent = "Ronda " + a.idx + "/4 — " + label;
-      document.getElementById("actSub").textContent = c.name + ": +" + pts + " pts · Total acumulat: " + a.total;
-      document.getElementById("actBreak").innerHTML = "";
-      const nb = document.getElementById("actNext");
-      nb.style.display = ""; nb.textContent = "Següent: " + a.rounds[a.idx].name + " ▶";
+      document.getElementById("actEmoji").textContent = o.emoji;
+      document.getElementById("actTitle").textContent = "La teva ronda " + a.idx + "/4 — " + o.label;
+      document.getElementById("actSub").textContent = c.name + ": +" + o.pts + " pts";
+      document.getElementById("actBreak").innerHTML = sbRow(COLLA.name, a.total, a.total >= a.rivalTotal) + sbRow(a.poble.rival, a.rivalTotal, a.rivalTotal > a.total);
+      const nb = document.getElementById("actNext"); nb.style.display = ""; nb.textContent = "Ronda " + (a.idx + 1) + ": torn rival ▶";
       actNextAction = startActRound;
       actScreen.classList.remove("hidden");
     } else {
@@ -1422,12 +1526,15 @@
     }
   }
   function showActFinal(a) {
-    const done = a.results.filter((r) => r.label === "Descarregat!").length;
-    document.getElementById("actEmoji").textContent = done === 4 ? "🏆" : (a.total > 0 ? "🎪" : "💥");
-    document.getElementById("actTitle").textContent = "Actuació acabada!";
-    document.getElementById("actSub").textContent = "Total: " + a.total + " punts" + (done ? " · " + done + "/4 descarregats" : "");
-    document.getElementById("actBreak").innerHTML = a.results.map((r, i) =>
-      '<div class="ab-row"><span>R' + (i + 1) + " · " + r.name + '</span><span>' + r.label + " +" + r.pts + '</span></div>').join("");
+    setShirt(a.myColor);
+    const win = a.total >= a.rivalTotal;
+    if (win && !save.wonPoble[a.poble.id]) save.wonPoble[a.poble.id] = true;
+    document.getElementById("actEmoji").textContent = win ? "🏆" : "💧";
+    document.getElementById("actTitle").textContent = win ? "Heu guanyat la diada!" : "Han guanyat els rivals";
+    document.getElementById("actSub").textContent = a.poble.poble;
+    document.getElementById("actBreak").innerHTML =
+      sbRow(COLLA.name, a.total, win) + sbRow(a.poble.rival, a.rivalTotal, !win) +
+      a.results.map((r, i) => '<div class="ab-row"><span>R' + (i + 1) + " · " + r.name + '</span><span>' + r.label + " +" + r.pts + '</span></div>').join("");
     document.getElementById("actNext").style.display = "none";
     actNextAction = null;
     if (a.total > (save.bestAct || 0)) save.bestAct = a.total;
@@ -1435,10 +1542,13 @@
     hideScreens(); actScreen.classList.remove("hidden");
   }
 
-  function begin(castell, assaig) {
+  function begin(castell, assaig, opts) {
+    opts = opts || {};
     curCastell = castell || curCastell;
     newGame();
     state.assaig = !!assaig;
+    state.auto = !!opts.auto; state.rival = !!opts.rival;
+    state.scriptFall = opts.scriptFall != null ? opts.scriptFall : -1;
     // reinforcement base for 8s/9s: pinya, then folre, then manilles
     const bs = [{ name: "la pinya", x: W / 2 }];
     if (curCastell.folre) bs.push({ name: "el folre", x: W / 2 });
@@ -1447,16 +1557,21 @@
     state.pisBase = bs.length;               // pinya (+folre +manilles) = pisos already on the base
     state.phase = PHASE.UP;                  // straight to play: equilibri + cap de colla
     state.solidesa = assaig ? 0.5 : 0.4;     // assaig una mica més estable
-    if (!tilt.enabled) enableTilt();          // accelerometer on (iOS asks here, on the gesture)
+    if (!state.auto && !tilt.enabled) enableTilt(); // accelerometer on (iOS asks here, on the gesture)
     Sound.setTune("toc"); Sound.ensure();
     screen = "game";
     hideScreens();
     uiEl.style.display = "";
+    // during the rival's turn: hide the player's controls + bars, show a banner
+    ctrlsEl.style.visibility = state.auto ? "hidden" : "";
+    barsEl.style.visibility = state.auto ? "hidden" : "";
+    if (opts.banner) { turnBanner.textContent = opts.banner; turnBanner.classList.remove("hidden"); }
+    else turnBanner.classList.add("hidden");
   }
 
   function showEnd() {
     Sound.stop();
-    if (state.actuacio) { showActRoundEnd(); return; }
+    if (state.actuacio) { if (state.rival) endRivalRound(); else showActRoundEnd(); return; }
     const r = state.result;
     const emoji = document.getElementById("endEmoji");
     const title = document.getElementById("endTitle");
@@ -1501,7 +1616,8 @@
   document.getElementById("assaigBtn").addEventListener("click", showAssaig);
   document.getElementById("actuacioBtn").addEventListener("click", showActuacio);
   document.getElementById("reptesBack").addEventListener("click", showHome);
-  document.getElementById("capBack").addEventListener("click", showHome);
+  document.getElementById("capBack").addEventListener("click", () => actuacioUnlocked() ? showPobles() : showHome());
+  document.getElementById("pobleBack").addEventListener("click", showHome);
   document.getElementById("actStart").addEventListener("click", startActuacio);
   document.getElementById("actNext").addEventListener("click", () => { if (actNextAction) actNextAction(); });
   document.getElementById("actMenu").addEventListener("click", showHome);
