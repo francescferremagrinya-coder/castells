@@ -31,20 +31,21 @@
   .ctrl.active, .capbtn:active { background: rgba(255,255,255,.85); transform: scale(.97); }
 
   .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; pointer-events: auto; background: rgba(207,227,238,.94); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  /* Home menu — festive sky with a castell silhouette watermark */
+  /* Home menu — festive pilar photo background */
   #homeScreen {
-    background-color: #8cc2db;
+    background-color: #f0a93a;
     background-image:
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 170'><g fill='%23223240' opacity='0.13'><rect x='54' y='12' width='12' height='14' rx='3'/><rect x='50' y='26' width='20' height='18' rx='3'/><rect x='45' y='44' width='30' height='20' rx='3'/><rect x='39' y='64' width='42' height='22' rx='4'/><rect x='33' y='86' width='54' height='24' rx='5'/><ellipse cx='60' cy='128' rx='58' ry='22'/></g></svg>"),
-      radial-gradient(70% 42% at 50% 4%, rgba(255,243,210,.95), rgba(255,243,210,0) 62%),
-      linear-gradient(180deg, #4f9fc8 0%, #7fbcd8 40%, #ddead0 74%, #ecd9ad 100%);
+      linear-gradient(180deg, rgba(18,16,28,.30) 0%, rgba(18,16,28,0) 20%, rgba(18,16,28,0) 52%, rgba(18,16,28,.55) 100%),
+      url("assets/fons_inici.png");
     background-repeat: no-repeat;
-    background-position: center 78%, center top, center;
-    background-size: min(78vw,340px) auto, 100% 100%, 100% 100%;
+    background-position: center, center;
+    background-size: cover, cover;
   }
-  #homeScreen h1 { text-shadow: 0 2px 0 rgba(255,255,255,.45); }
-  #homeScreen .principis { color: #355061; }
-  #homeScreen .colla-tag { color: #22323e; }
+  #homeScreen h1 { color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
+  #homeScreen .principis { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  #homeScreen .colla-tag { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  #homeScreen .pv { display: none; }
+  #homeScreen .btn-ghost { background: rgba(255,255,255,.82); border-color: rgba(255,255,255,.6); color: #1c2a33; }
   #reptesScreen { justify-content: flex-start; padding-top: 24px; padding-bottom: 24px; }
   .castell-list { max-height: none; }
   .overlay.hidden { display: none; }
