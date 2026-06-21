@@ -400,24 +400,32 @@ const GEO = {
   pinya:{feetY:1191,headY:121,cx:419,anchor:1004}, pinyaD:{feetY:1177,headY:131,cx:420,anchor:1014}, pinyaE:{feetY:1177,headY:120,cx:421,anchor:1014},
 };
 const SP = {};
-function drawPinyaSpr(cx, gy, radius){
-  // Pinya = full-size adults (same scale as the trunk: levelH/anchor). The crowd
-  // WIDTH comes from `radius`; people are packed and overlap into a dense mass.
+function pinyaPositions(cx, gy, radius){
   const step=levelH*0.34, rowGap=levelH*0.13;
   const rows=[{dy:-3*rowGap,hw:radius*0.55},{dy:-2*rowGap,hw:radius*0.80},{dy:-1*rowGap,hw:radius*1.00},{dy:0,hw:radius*1.12}];
+  const pts=[];
   rows.forEach((row,ri)=>{
-    const ry=gy+row.dy, step2=step;
-    const count=Math.max(1,Math.floor((row.hw*2)/step2)+1);
-    const startX=cx-(count-1)*step2/2+(ri%2)*step2*0.5;
-    const xs=[];for(let i=0;i<count;i++)xs.push(startX+i*step2);
-    xs.sort((a,b)=>Math.abs(b-cx)-Math.abs(a-cx));
-    for(const x of xs){
-      let name = x < cx-step2*0.4 ? 'pinyaE' : (x > cx+step2*0.4 ? 'pinyaD' : 'pinya');
-      const g=GEO[name], img=SP[name]; if(!img) continue;
-      const sc=levelH/g.anchor;
-      ctx.save(); ctx.translate(x, ry); ctx.drawImage(img, -g.cx*sc, -g.feetY*sc, img.width*sc, img.height*sc); ctx.restore();
-    }
+    const ry=gy+row.dy;
+    const count=Math.max(1,Math.floor((row.hw*2)/step)+1);
+    const startX=cx-(count-1)*step/2+(ri%2)*step*0.5;
+    for(let i=0;i<count;i++){const x=startX+i*step; pts.push({x:x,ry:ry,d:Math.abs(x-cx)});}
   });
+  return pts;
+}
+function drawCrowd(cx, pts){
+  const th=levelH*0.34*0.4;
+  pts=pts.slice().sort((a,b)=>b.d-a.d);
+  for(const p of pts){
+    let name = p.x < cx-th ? 'pinyaE' : (p.x > cx+th ? 'pinyaD' : 'pinya');
+    const g=GEO[name], img=SP[name]; if(!img) continue;
+    const sc=levelH/g.anchor;
+    ctx.save(); ctx.translate(p.x, p.ry); ctx.drawImage(img, -g.cx*sc, -g.feetY*sc, img.width*sc, img.height*sc); ctx.restore();
+  }
+}
+function drawPinyaSpr(cx, gy, radius){ drawCrowd(cx, pinyaPositions(cx, gy, radius)); }
+function drawRing(cx, gy, radius, limit){
+  const pts=pinyaPositions(cx, gy, radius).sort((a,b)=>a.d-b.d).slice(0, Math.max(1,limit));
+  drawCrowd(cx, pts);
 }
 function drawSp(name, x, y, mirror, kid){
   const img=SP[name], g=GEO[name]; if(!img) return false;
@@ -426,13 +434,14 @@ function drawSp(name, x, y, mirror, kid){
   ctx.drawImage(img, -g.cx*scale, -g.feetY*scale, img.width*scale, img.height*scale);
   ctx.restore(); return true;
 }
-function renderMulti(floors, file){
+function renderMulti(floors, file, base){
+  base = base || ['la pinya'];
   const grd=ctx.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#cfe3ee');grd.addColorStop(1,'#e8eedf');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
   const groundY=H*0.84; drawPlaca(groundY);
   const F=floors.length, maxW=Math.max.apply(null,floors), isPilar=maxW===1;
   let acc=0; for(let i=0;i<F;i++) acc+=floorMul(i,F,isPilar);
   levelH=Math.min(64,(groundY-H*0.05)/(acc+1.5));
-  const baseY=groundY-levelH*0.8+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
+  const dyB=34, baseY=groundY-levelH*0.8-(base.length-1)*dyB+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
   const fy=[];let c2=0;for(let i=0;i<F;i++){fy[i]=baseY-levelH*c2;c2+=floorMul(i,F,isPilar);}
   const kidScale=(fi)=> fi===F-1?0.72 : fi===F-2?0.74 : (!isPilar&&fi===F-3&&floors[fi]>=2?0.8:1);
   const yLift=(fi)=> fi===F-1?levelH*0.14:0;
@@ -459,7 +468,14 @@ function renderMulti(floors, file){
       }
     }
   }
-  drawPinyaSpr(cxBase,groundY,Math.min(W*0.46,130+maxW*46));
+  const pinyaR=Math.min(W*0.46,130+maxW*46);
+  const pinyaN=pinyaPositions(cxBase,groundY,pinyaR).length;
+  base.forEach((name,i)=>{
+    const y=groundY-i*dyB;
+    if(name==='el folre') drawRing(cxBase,y,pinyaR*0.82,Math.round(pinyaN*0.5));
+    else if(name==='les manilles') drawRing(cxBase,y,pinyaR*0.6,Math.round(pinyaN*0.25));
+    else drawPinyaSpr(cxBase,y,pinyaR);
+  });
   fs.writeFileSync(file,canvas.toBuffer('image/png'));console.log('wrote',file);
 }
 (async()=>{
@@ -467,5 +483,6 @@ function renderMulti(floors, file){
   for(const k in map){ try{ SP[k]=recolor(await napi.loadImage('assets/'+map[k]+'.png'),'#2f6f8f'); }catch(e){ console.log('miss',k,e.message); } }
   renderMulti(wideFloors(3,7),'/tmp/m3de7.png');
   renderMulti(pilarFloorsQA(5),'/tmp/mpilar.png');
+  renderMulti(pilarFloorsQA(8),'/tmp/mp8.png',['la pinya','el folre','les manilles']);
 })();
 function pilarFloorsQA(num){const f=[];for(let k=0;k<num-1;k++)f.push(1);return f;}

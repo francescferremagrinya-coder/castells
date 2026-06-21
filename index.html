@@ -792,9 +792,11 @@
     const pinyaTop = groundY - levelH * 0.8 - (nBelow - 1) * dyB;
     baseY = pinyaTop + levelH * 0.06;   // the bottom floor's FEET rest on the base
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
+    // folre = half the pinya's people, manilles = a quarter (each a tighter ring).
+    const pinyaN = sprite("pinya") ? pinyaPositions(cxBase, groundY, pinyaR).length : 0;
     const drawBaseLayer = (name, x, y) => {
-      if (name === "el folre") pinyaIllustrated(x, y, pinyaR * 0.74);
-      else if (name === "les manilles") pinyaIllustrated(x, y, pinyaR * 0.54);
+      if (name === "el folre") { if (pinyaN) drawRing(x, y, pinyaR * 0.82, Math.round(pinyaN * 0.5)); else pinyaIllustrated(x, y, pinyaR * 0.74); }
+      else if (name === "les manilles") { if (pinyaN) drawRing(x, y, pinyaR * 0.6, Math.round(pinyaN * 0.25)); else pinyaIllustrated(x, y, pinyaR * 0.54); }
       else pinyaIllustrated(x, y, pinyaR);
     };
     const spriteOn = !!(sprite("tronc") || sprite("pilar"));   // illustrated art available?
@@ -1093,24 +1095,35 @@
   // dense mound around the base. We only see napes, hair and mocadors (NO faces),
   // and the front rows' arms stretch forward toward the centre.
   // Illustrated pinya: a dense crowd built from the back/turned pinya sprites.
-  function drawPinyaSpr(cx, gy, radius) {
-    // Pinya = full-size adults (same scale as the trunk: levelH/anchor). The crowd
-    // WIDTH comes from `radius`; people are packed and overlap into a dense mass.
+  // Positions of a packed crowd (4 rows) around (cx,gy) within `radius`.
+  function pinyaPositions(cx, gy, radius) {
     const step = levelH * 0.34, rowGap = levelH * 0.13;
     const rows = [{ dy: -3 * rowGap, hw: radius * 0.55 }, { dy: -2 * rowGap, hw: radius * 0.80 }, { dy: -1 * rowGap, hw: radius * 1.00 }, { dy: 0, hw: radius * 1.12 }];
+    const pts = [];
     rows.forEach((row, ri) => {
       const ry = gy + row.dy;
       const count = Math.max(1, Math.floor((row.hw * 2) / step) + 1);
       const startX = cx - (count - 1) * step / 2 + (ri % 2) * step * 0.5;
-      const xs = []; for (let i = 0; i < count; i++) xs.push(startX + i * step);
-      xs.sort((a, b) => Math.abs(b - cx) - Math.abs(a - cx));
-      for (const x of xs) {
-        const name = x < cx - step * 0.4 ? "pinyaE" : (x > cx + step * 0.4 ? "pinyaD" : "pinya");
-        const cv = sprite(name), g = SPR.geo[name]; if (!cv || !g) continue;
-        const sc = levelH / g.anchor;
-        ctx.save(); ctx.translate(x, ry); ctx.drawImage(cv, -g.cx * sc, -g.feetY * sc, cv.width * sc, cv.height * sc); ctx.restore();
-      }
+      for (let i = 0; i < count; i++) { const x = startX + i * step; pts.push({ x: x, ry: ry, d: Math.abs(x - cx) }); }
     });
+    return pts;
+  }
+  // Draw a crowd: outer people first so the centre ones sit in front.
+  function drawCrowd(cx, pts) {
+    const th = levelH * 0.34 * 0.4;
+    pts = pts.slice().sort((a, b) => b.d - a.d);
+    for (const p of pts) {
+      const name = p.x < cx - th ? "pinyaE" : (p.x > cx + th ? "pinyaD" : "pinya");
+      const cv = sprite(name), g = SPR.geo[name]; if (!cv || !g) continue;
+      const sc = levelH / g.anchor;
+      ctx.save(); ctx.translate(p.x, p.ry); ctx.drawImage(cv, -g.cx * sc, -g.feetY * sc, cv.width * sc, cv.height * sc); ctx.restore();
+    }
+  }
+  function drawPinyaSpr(cx, gy, radius) { drawCrowd(cx, pinyaPositions(cx, gy, radius)); }
+  // A reinforcement ring (folre/manilles): the innermost `limit` people of a crowd.
+  function drawRing(cx, gy, radius, limit) {
+    const pts = pinyaPositions(cx, gy, radius).sort((a, b) => a.d - b.d).slice(0, Math.max(1, limit));
+    drawCrowd(cx, pts);
   }
   function pinyaIllustrated(cx, gy, radius) {
     if (sprite("pinya")) drawPinyaSpr(cx, gy, radius); else drawPinya(cx, gy, radius);
@@ -1285,6 +1298,11 @@
     curCastell = castell || curCastell;
     newGame();
     state.assaig = !!assaig;
+    // reinforcement base for 8s/9s: pinya, then folre, then manilles
+    const bs = [{ name: "la pinya", x: W / 2 }];
+    if (curCastell.folre) bs.push({ name: "el folre", x: W / 2 });
+    if (curCastell.manilles) bs.push({ name: "les manilles", x: W / 2 });
+    state.baseStack = bs;
     state.phase = PHASE.UP;                  // straight to play: equilibri + cap de colla
     state.solidesa = assaig ? 0.5 : 0.4;     // assaig una mica més estable
     if (!tilt.enabled) enableTilt();          // accelerometer on (iOS asks here, on the gesture)
