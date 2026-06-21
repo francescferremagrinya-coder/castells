@@ -286,6 +286,7 @@ render(3, true, true, 0.6, "/tmp/climb.png");
 
 // wide-trunk castell composition (Phase 1 of the new engine)
 function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
+function wideFloorsR(width, num, reinf) { const T = num - 4 - reinf; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
 // plan-view layout of a floor: people aligned (same height); some at the back (centre)
 function layout(w) {
   if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
@@ -486,5 +487,10 @@ function renderMulti(floors, file, base){
   renderMulti(wideFloors(3,7),'/tmp/m3de7.png');
   renderMulti(pilarFloorsQA(5),'/tmp/mpilar.png');
   renderMulti(pilarFloorsQA(8-2),'/tmp/mp8.png',['la pinya','el folre','les manilles']);
+  renderMulti(wideFloors(2,6),'/tmp/t2de6.png');
+  renderMulti(wideFloors(5,7),'/tmp/t5de7.png');
+  renderMulti(wideFloorsR(3,9,1),'/tmp/t3de9f.png',['la pinya','el folre']);
+  renderMulti(wideFloorsR(2,9,2),'/tmp/t2de9fm.png',['la pinya','el folre','les manilles']);
+  renderMulti(wideFloorsR(3,10,2),'/tmp/t3de10fm.png',['la pinya','el folre','les manilles']);
 })();
 function pilarFloorsQA(num){const f=[];for(let k=0;k<num-1;k++)f.push(1);return f;}

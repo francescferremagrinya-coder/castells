@@ -98,7 +98,15 @@ Extra* simplificades; aquesta és la referència «de veritat»:
 
 ## Estat al joc
 
-- **Jugables ara** (1 persona per pis → encaixen amb el motor actual): els
-  **pilars** (P de 4..9). Punts oficials aplicats on existeixen.
-- **Pendents** (necessiten motor de tronc ample + folre/manilles/agulla):
-  2de_, 3de_, 4de_, 5de_, 7de_, 9de_. Aquesta és la propera gran fita.
+Roster organitzat en 3 gammes (progressió clara):
+
+- 🟢 **Gamma baixa** (6 i 7): Pilar de 4, 3/4 de 6, Pilar de 5, Torre de 6,
+  4/3/5 de 7, Pilar de 6.
+- 🔵 **Gamma superior** (8 i primers 9 amb folre): 4/3/5 de 8, 2 de 8 f,
+  Pilar de 7 f, 4/3 de 9 f.
+- 🟣 **Gamma extra** (9 d'alta dificultat, 10 pisos, estructures netes):
+  5 de 9 f, 2 de 9 fm, Pilar de 8 fm, 3/4 de 10 fm, 4/3 de 9 sf.
+
+Motor: tronc de **width 1..5** (pilar, torre, 3, 4, 5) i qualsevol alçada;
+folre/manilles com a pisos propis (anells reforçats + tronc reduït). Pendent:
+amplades >5 (**7de_**, **9de_**) i variants **amb agulla** / **per sota**.

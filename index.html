@@ -314,19 +314,39 @@
   // pilar castellers are fewer (pinya=1, folre=2, manilles=3, first casteller=4…).
   function pilarFloorsR(num, reinf) { const f = []; for (let k = 0; k < num - 1 - reinf; k++) f.push(1); return f; }
   function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
+  // Wide castell with folre/manilles: the rings are pisos of their own, so the
+  // visible trunk loses `reinf` floors (folre = pis 2, manilles = pis 3…).
+  function wideFloorsR(width, num, reinf) { const T = num - 4 - reinf; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
   const peopleOf = (c) => c.floors.reduce((a, b) => a + b, 0);
-  // gamma: 0 = baixa (fàcil), 1 = superior (mitjana), 2 = extra (difícil)
+  // gamma: 0 = baixa (6 i 7), 1 = superior (8 i primers 9 amb folre),
+  //        2 = extra (9 d'alta dificultat, 10 pisos i estructures netes).
   const CASTELLS = [
+    // 🟢 Gamma baixa — castells de 6 i 7
     { id: "p4", name: "Pilar de 4", gamma: 0, floors: pilarFloors(4), diff: 0.8, pts: { carr: 120, desc: 140 } },
-    { id: "p5", name: "Pilar de 5", gamma: 0, floors: pilarFloors(5), diff: 0.9, pts: { carr: 185, desc: 210 } },
-    { id: "t3de6", name: "3 de 6", gamma: 0, floors: wideFloors(3, 6), diff: 1.0, pts: { carr: 150, desc: 175 } },
-    { id: "t4de7", name: "4 de 7", gamma: 0, floors: wideFloors(4, 7), diff: 1.12, pts: { carr: 240, desc: 275 } },
-    { id: "t3de7", name: "3 de 7", gamma: 1, floors: wideFloors(3, 7), diff: 1.22, pts: { carr: 250, desc: 290 } },
-    { id: "p6", name: "Pilar de 6", gamma: 1, floors: pilarFloors(6), diff: 1.3, pts: { carr: 580, desc: 665 } },
-    { id: "t4de8", name: "4 de 8", gamma: 1, floors: wideFloors(4, 8), diff: 1.4, pts: { carr: 550, desc: 635 } },
-    { id: "t3de8", name: "3 de 8", gamma: 2, floors: wideFloors(3, 8), diff: 1.5, pts: { carr: 610, desc: 700 } },
-    { id: "p7", name: "Pilar de 7 f", gamma: 2, floors: pilarFloorsR(7, 1), diff: 1.6, folre: true, pts: { carr: 835, desc: 960 } },
-    { id: "p8", name: "Pilar de 8 fm", gamma: 2, floors: pilarFloorsR(8, 2), diff: 1.72, folre: true, manilles: true, pts: { carr: 1925, desc: 2210 } },
+    { id: "t3de6", name: "3 de 6", gamma: 0, floors: wideFloors(3, 6), diff: 0.95, pts: { carr: 150, desc: 175 } },
+    { id: "t4de6", name: "4 de 6", gamma: 0, floors: wideFloors(4, 6), diff: 1.0, pts: { carr: 165, desc: 190 } },
+    { id: "p5", name: "Pilar de 5", gamma: 0, floors: pilarFloors(5), diff: 1.05, pts: { carr: 185, desc: 210 } },
+    { id: "t2de6", name: "Torre de 6", gamma: 0, floors: wideFloors(2, 6), diff: 1.1, pts: { carr: 175, desc: 200 } },
+    { id: "t4de7", name: "4 de 7", gamma: 0, floors: wideFloors(4, 7), diff: 1.15, pts: { carr: 240, desc: 275 } },
+    { id: "t3de7", name: "3 de 7", gamma: 0, floors: wideFloors(3, 7), diff: 1.22, pts: { carr: 250, desc: 290 } },
+    { id: "t5de7", name: "5 de 7", gamma: 0, floors: wideFloors(5, 7), diff: 1.3, pts: { carr: 365, desc: 420 } },
+    { id: "p6", name: "Pilar de 6", gamma: 0, floors: pilarFloors(6), diff: 1.35, pts: { carr: 580, desc: 665 } },
+    // 🔵 Gamma superior — castells de 8 i primers 9 amb folre
+    { id: "t4de8", name: "4 de 8", gamma: 1, floors: wideFloors(4, 8), diff: 1.45, pts: { carr: 550, desc: 635 } },
+    { id: "t3de8", name: "3 de 8", gamma: 1, floors: wideFloors(3, 8), diff: 1.5, pts: { carr: 610, desc: 700 } },
+    { id: "t5de8", name: "5 de 8", gamma: 1, floors: wideFloors(5, 8), diff: 1.58, pts: { carr: 880, desc: 1010 } },
+    { id: "t2de8f", name: "2 de 8 f", gamma: 1, floors: wideFloorsR(2, 8, 1), diff: 1.62, folre: true, pts: { carr: 800, desc: 920 } },
+    { id: "p7", name: "Pilar de 7 f", gamma: 1, floors: pilarFloorsR(7, 1), diff: 1.66, folre: true, pts: { carr: 835, desc: 960 } },
+    { id: "t4de9f", name: "4 de 9 f", gamma: 1, floors: wideFloorsR(4, 9, 1), diff: 1.78, folre: true, pts: { carr: 1270, desc: 1460 } },
+    { id: "t3de9f", name: "3 de 9 f", gamma: 1, floors: wideFloorsR(3, 9, 1), diff: 1.85, folre: true, pts: { carr: 1335, desc: 1530 } },
+    // 🟣 Gamma extra — 9 d'alta dificultat, 10 pisos i estructures netes
+    { id: "t5de9f", name: "5 de 9 f", gamma: 2, floors: wideFloorsR(5, 9, 1), diff: 2.0, folre: true, pts: { carr: 2090, desc: 2400 } },
+    { id: "t2de9fm", name: "2 de 9 fm", gamma: 2, floors: wideFloorsR(2, 9, 2), diff: 2.1, folre: true, manilles: true, pts: { carr: 1835, desc: 2110 } },
+    { id: "p8", name: "Pilar de 8 fm", gamma: 2, floors: pilarFloorsR(8, 2), diff: 2.15, folre: true, manilles: true, pts: { carr: 1925, desc: 2210 } },
+    { id: "t3de10fm", name: "3 de 10 fm", gamma: 2, floors: wideFloorsR(3, 10, 2), diff: 2.45, folre: true, manilles: true, pts: { carr: 2775, desc: 3195 } },
+    { id: "t4de10fm", name: "4 de 10 fm", gamma: 2, floors: wideFloorsR(4, 10, 2), diff: 2.5, folre: true, manilles: true, pts: { carr: 2870, desc: 3300 } },
+    { id: "t4de9sf", name: "4 de 9 sf", gamma: 2, floors: wideFloors(4, 9), diff: 2.6, pts: { carr: 2680, desc: 3405 } },
+    { id: "t3de9sf", name: "3 de 9 sf", gamma: 2, floors: wideFloors(3, 9), diff: 2.75, pts: { carr: 3250, desc: 4130 } },
   ];
   const GAMMES = ["Gamma baixa", "Gamma superior", "Gamma extra"];
   const cById = (id) => CASTELLS.find((c) => c.id === id);
