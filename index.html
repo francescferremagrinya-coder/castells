@@ -98,6 +98,8 @@
   .ab-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: #2c3942; background: rgba(255,255,255,.6); border-radius: 8px; padding: 7px 12px; }
   .ab-row span:last-child { font-weight: 700; }
   .btn:disabled { opacity: .4; pointer-events: none; }
+  .btn.locked { opacity: .72; }
+  .act-locked { width: min(90%,360px); margin: 8px auto 22px; background: rgba(255,255,255,.82); border: 2px solid #dfe6ea; border-radius: 14px; padding: 18px 18px; font-size: 15px; line-height: 1.5; color: #2c3942; }
 
   .sound-btn { position: fixed; top: 14px; right: 14px; z-index: 6; width: 42px; height: 42px; border-radius: 50%; border: none; background: rgba(255,255,255,.72); box-shadow: 0 1px 4px rgba(0,0,0,.18); font-size: 20px; line-height: 42px; text-align: center; cursor: pointer; pointer-events: auto; padding: 0; }
   .sound-btn:active { transform: scale(.92); }
@@ -1296,6 +1298,10 @@
 
   function showHome() {
     screen = "menu"; Sound.stop(); actuacio = null;
+    const actBtn = document.getElementById("actuacioBtn");
+    const open = actuacioUnlocked();
+    actBtn.textContent = open ? "Actuació" : "Actuació 🔒";
+    actBtn.classList.toggle("locked", !open);
     document.getElementById("collaNameLbl").textContent = COLLA.name;
     applyPreviewColor();
     hideScreens();
@@ -1333,10 +1339,13 @@
   // ---- Actuació (4 rondes: 3 castells + pilar de comiat) ----
   function actEligible(slot) {
     const unlocked = CASTELLS.filter(castellUnlocked);
-    let list = slot === 3 ? unlocked.filter(isPilarC) : unlocked;
-    if (!list.length) list = unlocked;
-    // for the castell slots, real castells first; everything by descending value
-    return list.slice().sort((a, b) => (isPilarC(a) - isPilarC(b)) || (b.pts.desc - a.pts.desc));
+    const list = slot === 3 ? unlocked.filter(isPilarC) : unlocked.filter((c) => !isPilarC(c));
+    return list.slice().sort((a, b) => b.pts.desc - a.pts.desc);
+  }
+  // Actuació opens only with at least 3 castells + 1 pilar unlocked.
+  function actuacioUnlocked() {
+    const u = CASTELLS.filter(castellUnlocked);
+    return u.filter((c) => !isPilarC(c)).length >= 3 && u.some(isPilarC);
   }
   function defaultActPicks() {
     const cs = actEligible(0), pil = actEligible(3);
@@ -1362,13 +1371,23 @@
     actPicks[i] = list[(idx + 1) % list.length];
     renderActRounds();
   }
+  function renderActLocked() {
+    const u = CASTELLS.filter(castellUnlocked);
+    const nc = u.filter((c) => !isPilarC(c)).length, np = u.filter(isPilarC).length;
+    document.getElementById("actRounds").innerHTML =
+      '<div class="act-locked">🔒 Per fer una <b>actuació</b> necessites <b>3 castells</b> i <b>1 pilar</b> desbloquejats a l\'Assaig.' +
+      '<br><br>Ara tens <b>' + Math.min(nc, 3) + '/3 castells</b> i <b>' + Math.min(np, 1) + '/1 pilar</b>.</div>';
+  }
   function showActuacio() {
     screen = "menu"; Sound.stop(); actuacio = null;
+    hideScreens(); capScreen.classList.remove("hidden");
+    const locked = !actuacioUnlocked();
+    document.getElementById("actStart").style.display = locked ? "none" : "";
+    if (locked) { renderActLocked(); return; }
     // keep prior picks if still valid, else default
-    const valid = actPicks.every((p, i) => p && castellUnlocked(p) && (i === 3 ? isPilarC(p) : true));
+    const valid = actPicks.every((p, i) => p && castellUnlocked(p) && (i === 3 ? isPilarC(p) : !isPilarC(p)));
     if (!valid) actPicks = defaultActPicks();
     renderActRounds();
-    hideScreens(); capScreen.classList.remove("hidden");
   }
   function startActuacio() {
     if (actPicks.some((p) => !p)) return;
