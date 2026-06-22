@@ -301,7 +301,7 @@
   function rgb2hsv(r, g, b) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), df = mx - mn; let h = 0; if (df) { if (mx === r) h = ((g - b) / df) % 6; else if (mx === g) h = (b - r) / df + 2; else h = (r - g) / df + 4; h *= 60; if (h < 0) h += 360; } return [h, mx ? df / mx : 0, mx]; }
   function hsv2rgb(h, s, v) { const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c; let r, g, b; if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; } else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; } else if (h < 300) { r = x; g = 0; b = c; } else { r = c; g = 0; b = x; } return [(r + m) * 255, (g + m) * 255, (b + m) * 255]; }
   // Recoloured offscreen canvas of pose `name` for the current colla (cached).
-  let useSprites = false;   // false → flat illustrated (vector) figures, like the cover
+  let useSprites = true;    // true → your uploaded illustrated sprites (the detailed figures)
   function sprite(name) {
     if (!useSprites) return null;
     const img = SPR.imgs[name]; if (!img) return null;
@@ -844,28 +844,67 @@
       ctx.beginPath(); roundRect(sx - 4, sy - 5, 8, 7, 2); ctx.fill(); ctx.stroke();
       ctx.fillStyle = "#e9c19a"; ctx.beginPath(); ctx.arc(sx, sy - 8, 3, 0, 7); ctx.fill(); ctx.stroke();
     };
-    // ornate framing building with balconies + spectators
+    // pointed (Gothic) window
+    const ogive = (cxw, wy, ww, wh) => {
+      const wx = cxw - ww / 2;
+      ctx.beginPath();
+      ctx.moveTo(wx, wy + wh); ctx.lineTo(wx, wy + ww * 0.45);
+      ctx.quadraticCurveTo(wx, wy + ww * 0.05, cxw, wy - ww * 0.14);
+      ctx.quadraticCurveTo(wx + ww, wy + ww * 0.05, wx + ww, wy + ww * 0.45);
+      ctx.lineTo(wx + ww, wy + wh); ctx.closePath();
+      ctx.fillStyle = "#3c5d7a"; ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.22)"; ctx.fillRect(wx + 2, wy + ww * 0.42, ww * 0.32, wh * 0.4);
+      ctx.strokeStyle = OUT; ctx.lineWidth = lw * 0.7; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cxw, wy + ww * 0.05); ctx.lineTo(cxw, wy + wh); ctx.stroke();   // mullion
+    };
+    // ornate modernista framing building: quoins, dentil cornice, rose window,
+    // pilasters, Gothic windows, balconies with spectators
     const building = (x, w, topY, fill, flag) => {
       const h = by - topY;
       ctx.fillStyle = fill; ctx.fillRect(x, topY, w, h);
-      ctx.fillStyle = "rgba(0,0,0,.1)"; ctx.fillRect(x + w * 0.72, topY, w * 0.28, h);
-      ctx.fillStyle = "rgba(255,255,255,.1)"; ctx.fillRect(x, topY, w * 0.1, h);
-      ctx.fillStyle = darken(fill, 0.76); ctx.fillRect(x - 4, topY - 12, w + 8, 14);                 // cornice
-      for (let mx = x - 2; mx < x + w; mx += 16) ctx.fillRect(mx, topY - 20, 9, 10);                 // merlons
-      ctx.strokeStyle = OUT; ctx.lineWidth = lw; ctx.strokeRect(x, topY, w, h); ctx.strokeRect(x - 4, topY - 12, w + 8, 14);
-      const cols = Math.max(2, Math.round(w / 44)), cw = w / cols;
+      ctx.fillStyle = "rgba(0,0,0,.1)"; ctx.fillRect(x + w * 0.74, topY, w * 0.26, h);
+      ctx.fillStyle = "rgba(255,255,255,.1)"; ctx.fillRect(x, topY, w * 0.08, h);
+      // corner quoins (alternating stone blocks)
+      ctx.fillStyle = darken(fill, 0.88);
+      for (let qy = topY + 2; qy < by; qy += 20) { ctx.fillRect(x, qy, 7, 10); ctx.fillRect(x + w - 7, qy + 10, 7, 10); }
+      // cornice: band + dentils + triangular finials
+      ctx.fillStyle = darken(fill, 0.72); ctx.fillRect(x - 5, topY - 14, w + 10, 16);
+      ctx.fillStyle = darken(fill, 0.56);
+      for (let dx = x - 3; dx < x + w + 3; dx += 9) ctx.fillRect(dx, topY - 3, 5, 5);
+      ctx.fillStyle = fill; ctx.strokeStyle = OUT; ctx.lineWidth = lw * 0.6;
+      for (let mx = x - 4; mx < x + w; mx += 17) { ctx.beginPath(); ctx.moveTo(mx, topY - 22); ctx.lineTo(mx + 5, topY - 31); ctx.lineTo(mx + 10, topY - 22); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+      ctx.strokeStyle = OUT; ctx.lineWidth = lw; ctx.strokeRect(x, topY, w, h); ctx.strokeRect(x - 5, topY - 14, w + 10, 16);
+      // rose window high up
+      const rcx = x + w / 2, rcy = topY + 24, rr = Math.min(15, w * 0.17);
+      ctx.fillStyle = "#3c5d7a"; ctx.beginPath(); ctx.arc(rcx, rcy, rr, 0, 7); ctx.fill();
+      ctx.strokeStyle = "rgba(220,232,242,.5)"; ctx.lineWidth = lw * 0.45;
+      for (let a = 0; a < 8; a++) { ctx.beginPath(); ctx.moveTo(rcx, rcy); ctx.lineTo(rcx + Math.cos(a * Math.PI / 4) * rr, rcy + Math.sin(a * Math.PI / 4) * rr); ctx.stroke(); }
+      ctx.strokeStyle = OUT; ctx.lineWidth = lw * 0.8; ctx.beginPath(); ctx.arc(rcx, rcy, rr, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(rcx, rcy, rr * 0.42, 0, 7); ctx.stroke();
+      // window floors with pilasters + balconies
+      const cols = Math.max(2, Math.round(w / 46)), cw = w / cols;
       let fl = 0;
-      for (let r = topY + 28; r < by - 30; r += 54, fl++) {
-        for (let ci = 0; ci < cols; ci++) archWin(x + (ci + 0.5) * cw, r, cw * 0.48, 30);
-        const yb = r + 38;                                                                            // balcony
-        ctx.fillStyle = darken(fill, 0.64); ctx.fillRect(x + 3, yb, w - 6, 5);
+      for (let r = topY + 50; r < by - 34; r += 56, fl++) {
+        ctx.fillStyle = darken(fill, 0.9);
+        for (let ci = 0; ci <= cols; ci++) ctx.fillRect(x + ci * cw - 2, r - 6, 4, 48);        // pilaster shafts
+        ctx.fillStyle = darken(fill, 0.66);
+        for (let ci = 0; ci <= cols; ci++) ctx.fillRect(x + ci * cw - 4, r - 11, 8, 5);         // capitals
+        for (let ci = 0; ci < cols; ci++) ogive(x + (ci + 0.5) * cw, r, cw * 0.46, 32);
+        const yb = r + 40;
+        ctx.fillStyle = darken(fill, 0.62); ctx.fillRect(x + 3, yb, w - 6, 5);
         ctx.strokeStyle = OUT; ctx.lineWidth = lw * 0.7; ctx.strokeRect(x + 3, yb, w - 6, 5);
         ctx.strokeStyle = "rgba(44,33,24,.6)"; ctx.lineWidth = lw * 0.5;
         for (let bx = x + 7; bx < x + w - 6; bx += 7) { ctx.beginPath(); ctx.moveTo(bx, yb); ctx.lineTo(bx, yb - 8); ctx.stroke(); }
         for (let ci = 0; ci < cols; ci++) if ((ci + fl) % 2 === 0) spectator(x + (ci + 0.5) * cw, yb, SHIRTS[(ci + fl) % SHIRTS.length]);
       }
+      // grand arched doorway at the base
+      const dw = Math.min(w * 0.42, 54), ddx = x + w / 2 - dw / 2, dtop = by - dw * 0.5 - 22;
+      ctx.fillStyle = darken(fill, 0.5);
+      ctx.beginPath(); ctx.moveTo(ddx, by); ctx.lineTo(ddx, dtop + dw * 0.5); ctx.arc(ddx + dw / 2, dtop + dw * 0.5, dw / 2, Math.PI, 0); ctx.lineTo(ddx + dw, by); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = lw * 0.8; ctx.stroke();
+      ctx.strokeStyle = darken(fill, 0.34); ctx.lineWidth = lw * 0.6; ctx.beginPath(); ctx.moveTo(ddx + dw / 2, dtop); ctx.lineTo(ddx + dw / 2, by); ctx.stroke();
       if (flag) {
-        const px = x + w * 0.5, py = topY - 20;
+        const px = x + w * 0.5, py = topY - 22;
         ctx.strokeStyle = "#6b5a44"; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - 30); ctx.stroke();
         const fw = 24, fh = 16, fy = py - 30;
         ctx.fillStyle = "#f2c200"; ctx.fillRect(px, fy, fw, fh);
