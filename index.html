@@ -678,6 +678,7 @@
           state.wantDown = false;
           if (state.placed > state.floor0 && Math.abs(state.lean) < 0.6) {
             state.placed--; state.goingUp = false; state.climbing = true; state.climbProg = 0;
+            state.floorMsg = "Avall!"; state.floorMsgT = 0;
           }
         }
       }
@@ -1053,16 +1054,26 @@
     // higher (no overlap). Drawn bottom→top so the higher ring covers the lower.
     for (let i = 0; i < baseStack.length; i++) drawBaseLayer(baseStack[i].name, baseStack[i].x, baseLayerY(i) + yJump);
 
-    // Floating "Amunt els terços!" shout while a floor climbs.
-    if (state.floorMsg && state.floorMsgT < 1.5) {
-      const t = state.floorMsgT, a = t < 0.18 ? t / 0.18 : Math.max(0, 1 - (t - 0.18) / 1.32);
+    // Floating "Amunt els terços!" / "Avall!" shout — big and centred.
+    if (state.floorMsg && state.floorMsgT < 1.6) {
+      const t = state.floorMsgT;
+      const a = t < 0.16 ? t / 0.16 : Math.max(0, 1 - (t - 0.16) / 1.44);
+      const pop = t < 0.16 ? 0.75 + 0.25 * (t / 0.16) : 1; // little pop-in
+      let fs = Math.min(56, W * 0.135);
+      const fontOf = (s) => "800 " + s + "px -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.font = fontOf(fs);
+      const tw = ctx.measureText(state.floorMsg).width;          // shrink to fit the width
+      if (tw > W * 0.92) fs *= (W * 0.92) / tw;
       ctx.save();
-      ctx.globalAlpha = a; ctx.textAlign = "center";
-      ctx.font = "800 30px -apple-system, Segoe UI, Roboto, sans-serif";
-      ctx.lineWidth = 5; ctx.lineJoin = "round"; ctx.strokeStyle = "rgba(255,255,255,.9)";
-      ctx.strokeText(state.floorMsg, W / 2, H * 0.3 - t * 24);
-      ctx.fillStyle = COLLA.shirt; ctx.fillText(state.floorMsg, W / 2, H * 0.3 - t * 24);
-      ctx.restore(); ctx.textAlign = "start";
+      ctx.globalAlpha = a; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.translate(W / 2, H * 0.46 - t * 12); ctx.scale(pop, pop);
+      ctx.font = fontOf(fs);
+      ctx.lineJoin = "round"; ctx.lineWidth = fs * 0.26; ctx.strokeStyle = "#2c2118";
+      ctx.strokeText(state.floorMsg, 0, 0);
+      ctx.lineWidth = fs * 0.1; ctx.strokeStyle = "rgba(255,255,255,.92)";
+      ctx.strokeText(state.floorMsg, 0, 0);
+      ctx.fillStyle = COLLA.shirt; ctx.fillText(state.floorMsg, 0, 0);
+      ctx.restore(); ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
     }
   }
 
