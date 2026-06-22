@@ -301,7 +301,9 @@
   function rgb2hsv(r, g, b) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), df = mx - mn; let h = 0; if (df) { if (mx === r) h = ((g - b) / df) % 6; else if (mx === g) h = (b - r) / df + 2; else h = (r - g) / df + 4; h *= 60; if (h < 0) h += 360; } return [h, mx ? df / mx : 0, mx]; }
   function hsv2rgb(h, s, v) { const c = v * s, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = v - c; let r, g, b; if (h < 60) { r = c; g = x; b = 0; } else if (h < 120) { r = x; g = c; b = 0; } else if (h < 180) { r = 0; g = c; b = x; } else if (h < 240) { r = 0; g = x; b = c; } else if (h < 300) { r = x; g = 0; b = c; } else { r = c; g = 0; b = x; } return [(r + m) * 255, (g + m) * 255, (b + m) * 255]; }
   // Recoloured offscreen canvas of pose `name` for the current colla (cached).
+  let useSprites = false;   // false → flat illustrated (vector) figures, like the cover
   function sprite(name) {
+    if (!useSprites) return null;
     const img = SPR.imgs[name]; if (!img) return null;
     const key = name + "|" + COLLA.shirt;
     if (SPR.cache[key]) return SPR.cache[key];
@@ -1080,6 +1082,7 @@
   function smooth(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
 
   // Filled tapered limb (trapezoid) between two points, with optional outline.
+  let FIGLW = 1.4; // figure outline width (set per-figure from levelH for a bold cartoon look)
   function quadLimb(ax, ay, aw, bx, by, bw, fill, stroke) {
     const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
     const nx = -dy / len, ny = dx / len;
@@ -1090,7 +1093,7 @@
     ctx.lineTo(ax - nx * aw, ay - ny * aw);
     ctx.closePath();
     if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.4; ctx.stroke(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = FIGLW; ctx.stroke(); }
   }
 
   // A casteller drawn with VOLUME. Origin is at the FEET (which rest on the
@@ -1110,7 +1113,8 @@
     const fs = u * (legsApart ? 0.32 : (crouch ? 0.28 : (spread ? 0.24 : 0.185))); // feet spread
     const R = u * 0.135;                    // head radius
     const headY = shoY - R * 1.02;
-    const OUT = "#202a31";
+    const OUT = "#23303a";
+    FIGLW = Math.max(1.7, u * 0.055);       // bold cartoon outline
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(x, y);
@@ -1137,7 +1141,7 @@
       ctx.strokeStyle = "rgba(20,28,34,.12)"; ctx.lineWidth = u * 0.05;
       ctx.beginPath(); ctx.moveTo(-fs * 0.5, hipY + u * 0.05); ctx.lineTo(-hw * 0.2, -u * 0.02); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(fs * 0.5, hipY + u * 0.05); ctx.lineTo(hw * 0.2, -u * 0.02); ctx.stroke();
-      ctx.fillStyle = "#39302a"; ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
+      ctx.fillStyle = "#39302a"; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW;
       ctx.beginPath(); ctx.ellipse(-fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
@@ -1152,16 +1156,12 @@
         ctx.lineTo(hw, hipY + u * 0.04);
         ctx.closePath();
       };
-      const g = ctx.createLinearGradient(-sw, 0, sw, 0);
-      g.addColorStop(0, COLLA.shirtDark); g.addColorStop(0.4, COLLA.shirt); g.addColorStop(0.62, COLLA.shirt); g.addColorStop(1, COLLA.shirtDark);
-      ctx.fillStyle = g; ctx.strokeStyle = OUT; ctx.lineWidth = 1.6;
+      // flat cartoon shirt: solid colour + one simple cel-shadow on the right
+      ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW;
       torsoPath(); ctx.fill(); ctx.stroke();
       ctx.save(); torsoPath(); ctx.clip();
-      const gv = ctx.createLinearGradient(0, shoY, 0, hipY);
-      gv.addColorStop(0, "rgba(255,255,255,.16)"); gv.addColorStop(0.5, "rgba(255,255,255,0)"); gv.addColorStop(1, "rgba(0,0,0,.16)");
-      ctx.fillStyle = gv; torsoPath(); ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,.1)";
-      ctx.beginPath(); ctx.ellipse(-sw * 0.3, shoY + T * 0.35, sw * 0.35, T * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = darken(COLLA.shirt, 0.84); ctx.fillRect(sw * 0.18, shoY - u * 0.1, sw, T + u * 0.2);
+      ctx.fillStyle = "rgba(255,255,255,.14)"; ctx.fillRect(-sw, shoY - u * 0.1, sw * 0.5, T + u * 0.2);
       ctx.restore();
 
       // --- faixa ---
@@ -1193,7 +1193,7 @@
     if (part !== 1) {
       const helmet = !!opts.helmet;
       // --- neck + head (drawn in a later pass so legs never cover the face) ---
-      ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
+      ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW;
       ctx.beginPath(); roundRect(-u * 0.05, shoY - u * 0.06, u * 0.1, u * 0.1, u * 0.03); ctx.fill(); ctx.stroke();
       ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       ctx.save(); ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.clip();

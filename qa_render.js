@@ -30,8 +30,9 @@ function quadLimb(ax, ay, aw, bx, by, bw, fill, stroke) {
   ctx.lineTo(ax - nx * aw, ay - ny * aw);
   ctx.closePath();
   if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.4; ctx.stroke(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = FIGLW; ctx.stroke(); }
 }
+let FIGLW = 1.4;
 
 // ---- BEGIN copy of drawCasteller (keep in sync with index.html) ----
 function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
@@ -48,7 +49,8 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
   const fs = u * (legsApart ? 0.32 : (crouch ? 0.28 : (spread ? 0.24 : 0.185)));
   const R = u * 0.135;
   const headY = shoY - R * 1.02;
-  const OUT = "#202a31";
+  const OUT = "#23303a";
+  FIGLW = Math.max(1.7, u * 0.055);
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.translate(x, y);
@@ -75,7 +77,7 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
     ctx.strokeStyle = "rgba(20,28,34,.12)"; ctx.lineWidth = u * 0.05;
     ctx.beginPath(); ctx.moveTo(-fs * 0.5, hipY + u * 0.05); ctx.lineTo(-hw * 0.2, -u * 0.02); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(fs * 0.5, hipY + u * 0.05); ctx.lineTo(hw * 0.2, -u * 0.02); ctx.stroke();
-    ctx.fillStyle = "#39302a"; ctx.strokeStyle = OUT; ctx.lineWidth = 1.2;
+    ctx.fillStyle = "#39302a"; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW;
     ctx.beginPath(); ctx.ellipse(-fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.ellipse(fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
@@ -90,16 +92,11 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
       ctx.lineTo(hw, hipY + u * 0.04);
       ctx.closePath();
     };
-    const g = ctx.createLinearGradient(-sw, 0, sw, 0);
-    g.addColorStop(0, COLLA.shirtDark); g.addColorStop(0.4, COLLA.shirt); g.addColorStop(0.62, COLLA.shirt); g.addColorStop(1, COLLA.shirtDark);
-    ctx.fillStyle = g; ctx.strokeStyle = OUT; ctx.lineWidth = 1.6;
+    ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW;
     torsoPath(); ctx.fill(); ctx.stroke();
     ctx.save(); torsoPath(); ctx.clip();
-    const gv = ctx.createLinearGradient(0, shoY, 0, hipY);
-    gv.addColorStop(0, "rgba(255,255,255,.16)"); gv.addColorStop(0.5, "rgba(255,255,255,0)"); gv.addColorStop(1, "rgba(0,0,0,.16)");
-    ctx.fillStyle = gv; torsoPath(); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,.1)";
-    ctx.beginPath(); ctx.ellipse(-sw * 0.3, shoY + T * 0.35, sw * 0.35, T * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = darken(COLLA.shirt, 0.84); ctx.fillRect(sw * 0.18, shoY - u * 0.1, sw, T + u * 0.2);
+    ctx.fillStyle = "rgba(255,255,255,.14)"; ctx.fillRect(-sw, shoY - u * 0.1, sw * 0.5, T + u * 0.2);
     ctx.restore();
 
     // --- faixa ---
@@ -132,7 +129,7 @@ function drawCasteller(x, y, idx, isTop, aleta, alpha, climbing, part, opts) {
   if (part !== 1) {
     const helmet = !!opts.helmet;
     // --- neck + head (drawn in a later pass so legs never cover the face) ---
-    ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
+    ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW;
     ctx.beginPath(); roundRect(-u * 0.05, shoY - u * 0.06, u * 0.1, u * 0.1, u * 0.03); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.save(); ctx.beginPath(); ctx.ellipse(0, headY, R * 0.92, R, 0, 0, Math.PI * 2); ctx.clip();
@@ -472,12 +469,12 @@ function renderMulti(floors, file, base){
     }
   }
   const pinyaR=Math.min(W*0.46,130+maxW*46);
-  const pinyaN=pinyaPositions(cxBase,groundY,pinyaR).length;
+  const pinyaN=SP.pinya?pinyaPositions(cxBase,groundY,pinyaR).length:0;  // 0 → vector fallback (like the game)
   base.forEach((name,i)=>{
     const y=baseLayerY(i);
-    if(name==='el folre') drawRing(cxBase,y,pinyaR*0.82,Math.round(pinyaN*0.5));
-    else if(name==='les manilles') drawRing(cxBase,y,pinyaR*0.6,Math.round(pinyaN*0.25));
-    else drawPinyaSpr(cxBase,y,pinyaR);
+    if(name==='el folre') pinyaN?drawRing(cxBase,y,pinyaR*0.82,Math.round(pinyaN*0.5)):drawPinya(cxBase,y,pinyaR*0.74);
+    else if(name==='les manilles') pinyaN?drawRing(cxBase,y,pinyaR*0.6,Math.round(pinyaN*0.25)):drawPinya(cxBase,y,pinyaR*0.54);
+    else (SP.pinya?drawPinyaSpr(cxBase,y,pinyaR):drawPinya(cxBase,y,pinyaR));
   });
   fs.writeFileSync(file,canvas.toBuffer('image/png'));console.log('wrote',file);
 }
@@ -492,5 +489,8 @@ function renderMulti(floors, file, base){
   renderMulti(wideFloorsR(3,9,1),'/tmp/t3de9f.png',['la pinya','el folre']);
   renderMulti(wideFloorsR(2,9,2),'/tmp/t2de9fm.png',['la pinya','el folre','les manilles']);
   renderMulti(wideFloorsR(3,10,2),'/tmp/t3de10fm.png',['la pinya','el folre','les manilles']);
+  for(const k in SP) delete SP[k];   // vector (illustrated) preview — no photo sprites
+  renderMulti(wideFloors(3,7),'/tmp/vec3de7.png');
+  renderMulti(pilarFloorsQA(5),'/tmp/vecpilar.png');
 })();
 function pilarFloorsQA(num){const f=[];for(let k=0;k<num-1;k++)f.push(1);return f;}
