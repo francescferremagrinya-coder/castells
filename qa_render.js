@@ -299,45 +299,45 @@ function floorMul(fi, F, isPilar) { if (fi === F - 2) return isPilar ? 0.72 : 0.
 // A stylised village square with the town hall (ajuntament) behind.
 function drawPlaca(groundY) {
   const by = groundY + 4;
-  // row of village houses across the back
-  let hx = -12, seed = 3;
+  const OUT = "#2c2118", lw = Math.max(2, Math.round(W / 210));
+  ctx.fillStyle = "#f7fbff";
+  const cloud = (cx, cy, s) => { ctx.beginPath(); ctx.arc(cx - s, cy, s * 0.7, 0, 7); ctx.arc(cx, cy - s * 0.4, s * 0.95, 0, 7); ctx.arc(cx + s, cy, s * 0.75, 0, 7); ctx.arc(cx, cy + s * 0.25, s * 0.9, 0, 7); ctx.fill(); };
+  cloud(W * 0.2, H * 0.12, 16); cloud(W * 0.82, H * 0.08, 20); cloud(W * 0.52, H * 0.2, 11);
+  const star = (x, y, r) => { ctx.fillStyle = "#fff3bf"; ctx.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * 0.38 : r; ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } ctx.closePath(); ctx.fill(); };
+  star(W * 0.34, H * 0.1, 6); star(W * 0.7, H * 0.16, 5); star(W * 0.12, H * 0.23, 4);
+  const facade = (x, w, topY, fill, flag) => {
+    ctx.fillStyle = fill; ctx.fillRect(x, topY, w, by - topY);
+    ctx.fillStyle = "rgba(0,0,0,.08)"; ctx.fillRect(x + w * 0.72, topY, w * 0.28, by - topY);
+    ctx.fillStyle = darken(fill, 0.8); ctx.fillRect(x - 3, topY - 11, w + 6, 13);
+    ctx.strokeStyle = OUT; ctx.lineWidth = lw; ctx.strokeRect(x, topY, w, by - topY); ctx.strokeRect(x - 3, topY - 11, w + 6, 13);
+    const cols = Math.max(2, Math.round(w / 36)), cw = w / cols;
+    for (let r = topY + 24; r < by - 30; r += 44) for (let ci = 0; ci < cols; ci++) {
+      const ww = cw * 0.46, wx = x + ci * cw + (cw - ww) / 2, wh = 24;
+      ctx.beginPath(); ctx.moveTo(wx, r + wh); ctx.lineTo(wx, r + ww / 2); ctx.arc(wx + ww / 2, r + ww / 2, ww / 2, Math.PI, 0); ctx.lineTo(wx + ww, r + wh); ctx.closePath();
+      ctx.fillStyle = "#3c5d7a"; ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.2)"; ctx.fillRect(wx + 2, r + ww / 2, ww * 0.38, wh * 0.4);
+      ctx.strokeStyle = OUT; ctx.lineWidth = lw * 0.7; ctx.stroke();
+    }
+    if (flag) {
+      const px = x + w * 0.5, py = topY - 11;
+      ctx.strokeStyle = "#6b5a44"; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - 34); ctx.stroke();
+      const fw = 26, fh = 17, fy = py - 34;
+      ctx.fillStyle = "#f2c200"; ctx.fillRect(px, fy, fw, fh);
+      ctx.fillStyle = "#d4231f"; for (let s = 0; s < 4; s++) ctx.fillRect(px, fy + fh * (0.1 + s * 0.24), fw, fh * 0.12);
+      ctx.strokeStyle = OUT; ctx.lineWidth = lw * 0.8; ctx.strokeRect(px, fy, fw, fh);
+    }
+  };
+  const tones = ["#e7c79a", "#dcb88a", "#e9cfa6", "#d2a878"];
+  let hx = -12, seed = 2;
   while (hx < W) {
-    const w = 44 + (seed * 37 % 28), h = 64 + (seed * 53 % 54);
-    const odd = seed % 2;
-    ctx.fillStyle = odd ? "#a65b3a" : "#925334"; // roof
-    ctx.beginPath(); ctx.moveTo(hx - 3, by - h); ctx.lineTo(hx + w / 2, by - h - w * 0.16); ctx.lineTo(hx + w + 3, by - h); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = odd ? "#e0d0b0" : "#d8c4a0"; ctx.fillRect(hx, by - h, w, h); // facade
-    ctx.fillStyle = "rgba(70,80,90,.5)";
-    for (let wy = by - h + 12; wy < by - 14; wy += 22) for (let wx = hx + 7; wx < hx + w - 11; wx += 17) ctx.fillRect(wx, wy, 9, 13);
-    hx += w - 3; seed++;
+    const w = 58 + (seed * 37 % 30), edge = (hx < W * 0.16 || hx > W * 0.7);
+    const topY = by - (edge ? H * (0.34 + (seed % 2) * 0.06) : 96 + (seed * 23 % 56));
+    facade(hx, w, topY, tones[seed % tones.length], seed === 4);
+    hx += w - 4; seed++;
   }
-  // town hall (ajuntament), centred and taller
-  const aw = Math.min(W * 0.42, 250), ax = W / 2 - aw / 2, ah = H * 0.3, ay = by - ah;
-  ctx.fillStyle = "#8a4a2e"; ctx.fillRect(ax - 12, ay - 12, aw + 24, 16); // cornice/roof
-  ctx.fillStyle = "#efe7d6"; ctx.fillRect(ax, ay, aw, ah);                 // stone facade
-  ctx.fillStyle = "rgba(0,0,0,.06)"; ctx.fillRect(ax + aw * 0.62, ay, aw * 0.38, ah);
-  // arcades (ground-floor arches)
-  const na = 3, ow = aw / na;
-  ctx.fillStyle = "#3a3128";
-  for (let i = 0; i < na; i++) {
-    const ox = ax + i * ow + ow * 0.2, owd = ow * 0.6;
-    ctx.beginPath(); ctx.moveTo(ox, by); ctx.lineTo(ox, by - ah * 0.32); ctx.arc(ox + owd / 2, by - ah * 0.32, owd / 2, Math.PI, 0); ctx.lineTo(ox + owd, by); ctx.closePath(); ctx.fill();
-  }
-  // balcony windows (upper floor)
-  ctx.fillStyle = "#46586a";
-  for (let i = 0; i < na; i++) { const wx = ax + i * ow + ow * 0.32; ctx.fillRect(wx, ay + ah * 0.42, ow * 0.36, ah * 0.22); }
-  ctx.fillStyle = "#5a4632"; ctx.fillRect(ax + aw * 0.08, ay + ah * 0.66, aw * 0.84, 5); // balcony rail
-  // clock + pediment + senyera flag
-  ctx.fillStyle = "#f5f2e8"; ctx.strokeStyle = "#3a3128"; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(W / 2, ay + ah * 0.2, ah * 0.08, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(W / 2, ay + ah * 0.2); ctx.lineTo(W / 2, ay + ah * 0.15); ctx.moveTo(W / 2, ay + ah * 0.2); ctx.lineTo(W / 2 + ah * 0.05, ay + ah * 0.2); ctx.stroke();
-  ctx.strokeStyle = "#6b5a44"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(W / 2, ay - 12); ctx.lineTo(W / 2, ay - 12 - ah * 0.18); ctx.stroke();
-  const fw = ah * 0.16, fh = ah * 0.1, fy0 = ay - 12 - ah * 0.18;
-  ctx.fillStyle = "#f2c200"; ctx.fillRect(W / 2, fy0, fw, fh);
-  ctx.fillStyle = "#d4231f"; for (let s = 0; s < 4; s++) ctx.fillRect(W / 2, fy0 + fh * (0.12 + s * 0.24), fw, fh * 0.12);
-  // plaza paving (foreground)
-  ctx.fillStyle = "#cfc3a6"; ctx.fillRect(0, by, W, H - by);
-  ctx.strokeStyle = "rgba(90,80,60,.18)"; ctx.lineWidth = 1;
+  ctx.fillStyle = "#d8c19a"; ctx.fillRect(0, by, W, H - by);
+  ctx.fillStyle = "rgba(120,100,70,.16)"; ctx.fillRect(0, by, W, 7);
+  ctx.strokeStyle = "rgba(90,80,60,.15)"; ctx.lineWidth = 1;
   for (let i = 1; i < 7; i++) { ctx.beginPath(); ctx.moveTo(W / 2 + (i - 3.5) * 80, by); ctx.lineTo(W / 2 + (i - 3.5) * 240, H); ctx.stroke(); }
 }
 function renderCastell(floors, file) {
@@ -437,7 +437,7 @@ function drawSp(name, x, y, mirror, kid){
 }
 function renderMulti(floors, file, base){
   base = base || ['la pinya'];
-  const grd=ctx.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#cfe3ee');grd.addColorStop(1,'#e8eedf');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+  const grd=ctx.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#5fb0e6');grd.addColorStop(0.6,'#9fd2ef');grd.addColorStop(1,'#d6ecf6');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
   const groundY=H*0.84; drawPlaca(groundY);
   const F=floors.length, maxW=Math.max.apply(null,floors), isPilar=maxW===1;
   let acc=0; for(let i=0;i<F;i++) acc+=floorMul(i,F,isPilar);
