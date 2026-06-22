@@ -1107,11 +1107,11 @@
     const L = u * (crouch ? 0.26 : 0.55), T = u * (crouch ? 0.42 : 0.45); // leg + torso
     const breath = Math.sin(ANIM * 1.8 + idx * 0.9) * u * 0.012; // subtle breathing
     const hipY = -L, shoY = -(L + T) - breath;
-    const sw = u * (isTop ? 0.155 : 0.185); // half shoulder width (top is slimmer)
-    const hw = u * 0.1;                     // half hip
+    const sw = u * (isTop ? 0.175 : 0.21);  // half shoulder width (top is slimmer)
+    const hw = u * 0.115;                    // half hip
     const spread = !!opts.spread, reach = (opts.reach || 0.34) * u;
-    const fs = u * (legsApart ? 0.32 : (crouch ? 0.28 : (spread ? 0.24 : 0.185))); // feet spread
-    const R = u * 0.135;                    // head radius
+    const fs = u * (legsApart ? 0.32 : (crouch ? 0.28 : (spread ? 0.24 : 0.2))); // feet spread
+    const R = u * 0.152;                    // head radius
     const headY = shoY - R * 1.02;
     const OUT = "#23303a";
     FIGLW = Math.max(1.7, u * 0.055);       // bold cartoon outline
@@ -1121,12 +1121,15 @@
     ctx.lineJoin = "round"; ctx.lineCap = "round";
 
     const hand = (hx, hy) => {
-      ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
-      ctx.beginPath(); ctx.arc(hx, hy, u * 0.05, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = COLLA.skin; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW * 0.7;
+      ctx.beginPath(); ctx.arc(hx, hy, u * 0.058, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     };
     const arm = (sx, sy, ex, ey, hx, hy) => {
-      quadLimb(sx, sy, u * 0.062, ex, ey, u * 0.05, COLLA.shirt, OUT);  // sleeve
-      quadLimb(ex, ey, u * 0.045, hx, hy, u * 0.038, COLLA.skin, OUT);  // forearm
+      quadLimb(sx, sy, u * 0.076, ex, ey, u * 0.058, COLLA.shirt, OUT);  // sleeve
+      quadLimb(ex, ey, u * 0.052, hx, hy, u * 0.044, COLLA.skin, OUT);   // forearm
+      // short-sleeve cuff
+      ctx.fillStyle = darken(COLLA.shirt, 0.8); ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW * 0.6;
+      ctx.beginPath(); ctx.arc(ex, ey, u * 0.058, 0, Math.PI * 2); ctx.fill();
       hand(hx, hy);
     };
 
@@ -1136,14 +1139,20 @@
       ctx.beginPath(); ctx.ellipse(0, u * 0.04, u * 0.32, u * 0.07, 0, 0, Math.PI * 2); ctx.fill();
 
       // --- legs (trousers) + shoes ---
-      quadLimb(-fs, 0, u * 0.085, -hw, hipY, u * 0.092, COLLA.pants, OUT);
-      quadLimb(fs, 0, u * 0.085, hw, hipY, u * 0.092, COLLA.pants, OUT);
+      quadLimb(-fs, 0, u * 0.098, -hw, hipY, u * 0.106, COLLA.pants, OUT);
+      quadLimb(fs, 0, u * 0.098, hw, hipY, u * 0.106, COLLA.pants, OUT);
       ctx.strokeStyle = "rgba(20,28,34,.12)"; ctx.lineWidth = u * 0.05;
       ctx.beginPath(); ctx.moveTo(-fs * 0.5, hipY + u * 0.05); ctx.lineTo(-hw * 0.2, -u * 0.02); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(fs * 0.5, hipY + u * 0.05); ctx.lineTo(hw * 0.2, -u * 0.02); ctx.stroke();
-      ctx.fillStyle = "#39302a"; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW;
-      ctx.beginPath(); ctx.ellipse(-fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.beginPath(); ctx.ellipse(fs, 1, u * 0.105, u * 0.052, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // espardenya laces (vetes) criss-crossing up the ankle
+      ctx.strokeStyle = "#4a3c2a"; ctx.lineWidth = FIGLW * 0.55;
+      [-fs, fs].forEach((sx) => { for (let k = 0; k < 2; k++) { const y0 = -u * 0.03 - k * u * 0.055; ctx.beginPath(); ctx.moveTo(sx - u * 0.05, y0); ctx.lineTo(sx + u * 0.05, y0 - u * 0.045); ctx.moveTo(sx + u * 0.05, y0); ctx.lineTo(sx - u * 0.05, y0 - u * 0.045); ctx.stroke(); } });
+      // espardenyes (tan jute)
+      ctx.fillStyle = "#cdb88f"; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW;
+      ctx.beginPath(); ctx.ellipse(-fs, 1, u * 0.112, u * 0.056, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(fs, 1, u * 0.112, u * 0.056, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.beginPath(); ctx.ellipse(-fs, 1 + u * 0.03, u * 0.112, u * 0.022, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(fs, 1 + u * 0.03, u * 0.112, u * 0.022, 0, 0, Math.PI * 2); ctx.fill();
 
       // --- torso (shirt) with volume ---
       const torsoPath = () => {
@@ -1163,12 +1172,20 @@
       ctx.fillStyle = darken(COLLA.shirt, 0.84); ctx.fillRect(sw * 0.18, shoY - u * 0.1, sw, T + u * 0.2);
       ctx.fillStyle = "rgba(255,255,255,.14)"; ctx.fillRect(-sw, shoY - u * 0.1, sw * 0.5, T + u * 0.2);
       ctx.restore();
+      // collar at the neck base
+      ctx.fillStyle = darken(COLLA.shirt, 0.72); ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW * 0.7;
+      ctx.beginPath(); ctx.ellipse(0, shoY - u * 0.005, sw * 0.46, u * 0.07, 0, 0, Math.PI); ctx.fill(); ctx.stroke();
 
-      // --- faixa ---
-      ctx.fillStyle = COLLA.faixa;
-      ctx.beginPath(); roundRect(-hw * 1.25, hipY - u * 0.04, hw * 2.5, u * 0.18, u * 0.03); ctx.fill();
-      ctx.strokeStyle = "rgba(0,0,0,.35)"; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(-hw, hipY + u * 0.04); ctx.lineTo(hw, hipY + u * 0.04); ctx.stroke();
+      // --- faixa (black sash) with a side knot + hanging tails ---
+      ctx.fillStyle = COLLA.faixa; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW * 0.85;
+      ctx.beginPath(); roundRect(-hw * 1.32, hipY - u * 0.05, hw * 2.64, u * 0.2, u * 0.03); ctx.fill(); ctx.stroke();
+      if (!back) {
+        ctx.lineCap = "round"; ctx.strokeStyle = COLLA.faixa; ctx.lineWidth = u * 0.055;
+        ctx.beginPath(); ctx.moveTo(-hw * 1.1, hipY + u * 0.08); ctx.lineTo(-hw * 1.28, hipY + u * 0.3); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-hw * 0.95, hipY + u * 0.08); ctx.lineTo(-hw * 0.82, hipY + u * 0.32); ctx.stroke();
+        ctx.fillStyle = COLLA.faixa; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW * 0.7;
+        ctx.beginPath(); ctx.ellipse(-hw * 1.05, hipY + u * 0.04, u * 0.065, u * 0.08, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
 
       // --- arms ---
       if (crouch) {
@@ -1226,16 +1243,29 @@
         ctx.fillStyle = darken(COLLA.shirt, 0.7); ctx.beginPath(); ctx.arc(0, headY - R * 0.1, R * 0.22, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = COLLA.skin; ctx.beginPath(); ctx.arc(0, headY + R * 0.7, R * 0.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.fill();
       } else {
-        // mocador knot on the side
-        ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(R * 0.86, headY - R * 0.25, R * 0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-        // eyes, nose, mouth
+        // mocador knot + two little tails at the side of the head
+        ctx.lineCap = "round"; ctx.strokeStyle = COLLA.shirt; ctx.lineWidth = R * 0.24;
+        ctx.beginPath(); ctx.moveTo(R * 1.0, headY - R * 0.28); ctx.lineTo(R * 1.34, headY - R * 0.12); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(R * 1.0, headY - R * 0.38); ctx.lineTo(R * 1.32, headY - R * 0.5); ctx.stroke();
+        ctx.fillStyle = COLLA.shirt; ctx.strokeStyle = OUT; ctx.lineWidth = FIGLW * 0.7;
+        ctx.beginPath(); ctx.ellipse(R * 0.92, headY - R * 0.3, R * 0.22, R * 0.26, 0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        // --- friendly face ---
+        const fy = headY + R * 0.24, fx = R * 0.36;
+        ctx.strokeStyle = "#3a2c20"; ctx.lineWidth = FIGLW * 0.7;
+        ctx.beginPath(); ctx.moveTo(-fx - R * 0.16, fy - R * 0.36); ctx.lineTo(-fx + R * 0.18, fy - R * 0.46); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(fx - R * 0.18, fy - R * 0.46); ctx.lineTo(fx + R * 0.16, fy - R * 0.36); ctx.stroke();
         ctx.fillStyle = "#2a2018";
-        ctx.beginPath(); ctx.arc(-R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(R * 0.32, headY + R * 0.22, R * 0.1, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = "rgba(120,75,55,.55)"; ctx.lineWidth = 1.1;
-        ctx.beginPath(); ctx.moveTo(0, headY + R * 0.2); ctx.lineTo(-R * 0.06, headY + R * 0.42); ctx.stroke();
-        ctx.beginPath(); ctx.arc(0, headY + R * 0.5, R * 0.24, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(-fx, fy, R * 0.13, R * 0.17, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(fx, fy, R * 0.13, R * 0.17, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(-fx + R * 0.05, fy - R * 0.06, R * 0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(fx + R * 0.05, fy - R * 0.06, R * 0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(231,120,103,.45)";
+        ctx.beginPath(); ctx.arc(-fx - R * 0.08, fy + R * 0.4, R * 0.13, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(fx + R * 0.08, fy + R * 0.4, R * 0.13, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "rgba(150,95,65,.4)"; ctx.beginPath(); ctx.arc(0, fy + R * 0.16, R * 0.06, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#8a4a30"; ctx.lineWidth = FIGLW * 0.7; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.arc(0, fy + R * 0.28, R * 0.22, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
       }
     }
 
