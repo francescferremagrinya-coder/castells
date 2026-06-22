@@ -391,11 +391,11 @@ function rgb2hsv(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.mi
 function hsv2rgb(h,s,v){const cc=v*s,xx=cc*(1-Math.abs((h/60)%2-1)),m=v-cc;let r,g,b;if(h<60){r=cc;g=xx;b=0;}else if(h<120){r=xx;g=cc;b=0;}else if(h<180){r=0;g=cc;b=xx;}else if(h<240){r=0;g=xx;b=cc;}else if(h<300){r=xx;g=0;b=cc;}else{r=cc;g=0;b=xx;}return[(r+m)*255,(g+m)*255,(b+m)*255];}
 function recolor(img,hex){const W2=img.width,H2=img.height;const c=napi.createCanvas(W2,H2),x=c.getContext('2d');x.drawImage(img,0,0);const id=x.getImageData(0,0,W2,H2),d=id.data;const th=rgb2hsv(parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16))[0];for(let i=0;i<d.length;i+=4){if(d[i+3]<10)continue;const[h,s,v]=rgb2hsv(d[i],d[i+1],d[i+2]);if(s>0.45&&v>0.22&&(h<18||h>340)){const[nr,ng,nb]=hsv2rgb(th,Math.min(1,s),v);d[i]=nr;d[i+1]=ng;d[i+2]=nb;}}x.putImageData(id,0,0);return c;}
 const GEO = {
-  tronc:{feetY:1351,cx:511,anchor:1000}, esquena:{feetY:1116,cx:424,anchor:859},
-  perfil:{feetY:1368,cx:359,anchor:1004}, pilar:{feetY:1452,cx:513,anchor:1010},
-  enx:{feetY:1421,cx:522,anchor:1050},
-  acot:{feetY:1031,cx:420,anchor:760}, enxw:{feetY:1120,cx:404,anchor:980},
-  pinya:{feetY:1191,headY:121,cx:419,anchor:1004}, pinyaD:{feetY:1177,headY:131,cx:420,anchor:1014}, pinyaE:{feetY:1177,headY:120,cx:421,anchor:1014},
+  tronc:{feetY:676,cx:256,anchor:500}, esquena:{feetY:558,cx:212,anchor:430},
+  perfil:{feetY:684,cx:180,anchor:502}, pilar:{feetY:726,cx:257,anchor:505},
+  enx:{feetY:711,cx:261,anchor:525},
+  acot:{feetY:516,cx:210,anchor:380}, enxw:{feetY:560,cx:202,anchor:490},
+  pinya:{feetY:596,headY:61,cx:210,anchor:502}, pinyaD:{feetY:589,headY:66,cx:210,anchor:507}, pinyaE:{feetY:589,headY:60,cx:211,anchor:507},
 };
 const SP = {};
 function pinyaPositions(cx, gy, radius){

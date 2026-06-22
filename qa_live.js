@@ -4,13 +4,14 @@ const fs = require('fs');
 const realCanvas = createCanvas(440, 820);
 const _style = {};
 const game = new Proxy(realCanvas, { get(t,p){ if(p==='style') return _style; const v=t[p]; return typeof v==='function'? v.bind(t): v; }, set(t,p,v){ if(p!=='style') t[p]=v; return true; } });
+function canvasProxy(c){const st={};return new Proxy(c,{get(t,p){if(p==='style')return st;const v=t[p];return typeof v==='function'?v.bind(t):v;},set(t,p,v){if(p!=='style')t[p]=v;return true;}});}
 function stub(n){const f=function(){return stub(n);};return new Proxy(f,{get(t,p){
  if(p==='style')return stub('s');if(p==='classList')return{add(){},remove(){},contains(){return false;},toggle(){}};
  if(p==='dataset')return{};if(p==='length')return 0;if(p==='value')return'';
  if(p==='textContent'||p==='innerHTML')return'';if(p==='children')return[];
  if(p===Symbol.toPrimitive)return()=>0;if(p==='then')return undefined;
  return stub(n+'.'+String(p));},set(){return true;},apply(){return stub('a');}});}
-global.document={getElementById:(id)=>id==='game'?game:stub('#'+id),querySelector:()=>stub('q'),querySelectorAll:()=>[],createElement:()=>stub('el'),addEventListener:()=>{},body:stub('b')};
+global.document={getElementById:(id)=>id==='game'?game:stub('#'+id),querySelector:()=>stub('q'),querySelectorAll:()=>[],createElement:(tag)=> tag==='canvas'? createCanvas(2,2) : stub('el'),addEventListener:()=>{},body:stub('b')};
 global.window={addEventListener:()=>{},devicePixelRatio:1,innerWidth:440,innerHeight:820,AudioContext:function(){return stub('x');},DeviceOrientationEvent:undefined,requestAnimationFrame:()=>0,localStorage:{getItem:()=>null,setItem:()=>{}}};
 global.localStorage=window.localStorage;global.requestAnimationFrame=()=>0;global.cancelAnimationFrame=()=>0;
 global.Image=function(){return stub('i');};global.AudioContext=window.AudioContext;global.navigator={userAgent:'node'};global.performance={now:()=>0};
