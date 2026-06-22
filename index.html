@@ -31,19 +31,20 @@
   .ctrl.active, .capbtn:active { background: rgba(255,255,255,.85); transform: scale(.97); }
 
   .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px; pointer-events: auto; background: rgba(207,227,238,.94); overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  /* Home menu — festive pilar photo background */
+  /* Home menu — illustrated title background ("AMUNT!") */
   #homeScreen {
-    background-color: #f0a93a;
+    justify-content: flex-end; padding-bottom: 34px;
+    background-color: #6cb6e0;
     background-image:
-      linear-gradient(180deg, rgba(18,16,28,.30) 0%, rgba(18,16,28,0) 20%, rgba(18,16,28,0) 52%, rgba(18,16,28,.55) 100%),
+      linear-gradient(180deg, rgba(18,16,28,0) 46%, rgba(18,16,28,.28) 70%, rgba(18,16,28,.66) 100%),
       url("assets/fons_inici.jpg");
     background-repeat: no-repeat;
-    background-position: center, center;
+    background-position: center, center top;
     background-size: cover, cover;
   }
   #homeScreen h1 { color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
-  #homeScreen .principis { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
-  #homeScreen .colla-tag { color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+  #homeScreen .principis { display: none; }
+  #homeScreen .colla-tag { color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,.7); }
   #homeScreen .pv { display: none; }
   #homeScreen .btn-ghost { background: rgba(255,255,255,.82); border-color: rgba(255,255,255,.6); color: #1c2a33; }
   #reptesScreen { justify-content: flex-start; padding-top: 24px; padding-bottom: 24px; }
