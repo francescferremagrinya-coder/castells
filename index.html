@@ -1006,10 +1006,11 @@
     const baseLayerY = (i) => groundY - (i === 0 ? 0 : baseLift + (i - 1) * levelH);
     baseY = groundY - baseLift - nReinf * levelH + levelH * 0.06; // trunk feet rest above the rings
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
-    // folre / manilles = smaller crowd blocks stacked on the pinya
+    // folre = half the pinya's people, manilles = a quarter (each a tighter ring).
+    const pinyaN = sprite("pinya") ? pinyaPositions(cxBase, groundY, pinyaR).length : 0;
     const drawBaseLayer = (name, x, y) => {
-      if (name === "el folre") pinyaIllustrated(x, y, pinyaR * 0.62);
-      else if (name === "les manilles") pinyaIllustrated(x, y, pinyaR * 0.44);
+      if (name === "el folre") { if (pinyaN) drawRing(x, y, pinyaR * 0.82, Math.round(pinyaN * 0.5)); else pinyaIllustrated(x, y, pinyaR * 0.74); }
+      else if (name === "les manilles") { if (pinyaN) drawRing(x, y, pinyaR * 0.6, Math.round(pinyaN * 0.25)); else pinyaIllustrated(x, y, pinyaR * 0.54); }
       else pinyaIllustrated(x, y, pinyaR);
     };
     const spriteOn = !!(sprite("tronc") || sprite("pilar"));   // illustrated art available?
@@ -1359,26 +1360,32 @@
   // and the front rows' arms stretch forward toward the centre.
   // Illustrated pinya: a dense crowd built from the back/turned pinya sprites.
   // Positions of a packed crowd (4 rows) around (cx,gy) within `radius`.
+  const ihash = (n) => { n = (n ^ 61) ^ (n >>> 16); n = (n + (n << 3)) | 0; n = n ^ (n >>> 4); n = (n * 0x27d4eb2d) | 0; n = n ^ (n >>> 15); return (n >>> 0); };
   function pinyaPositions(cx, gy, radius) {
-    const step = levelH * 0.34, rowGap = levelH * 0.13;
-    const rows = [{ dy: -3 * rowGap, hw: radius * 0.55 }, { dy: -2 * rowGap, hw: radius * 0.80 }, { dy: -1 * rowGap, hw: radius * 1.00 }, { dy: 0, hw: radius * 1.12 }];
+    const step = levelH * 0.3, rowGap = levelH * 0.12;
+    // 5 rows, denser → a deep, packed block (not a thin grid)
+    const rows = [{ dy: -4 * rowGap, hw: radius * 0.5 }, { dy: -3 * rowGap, hw: radius * 0.72 }, { dy: -2 * rowGap, hw: radius * 0.9 }, { dy: -1 * rowGap, hw: radius * 1.04 }, { dy: 0, hw: radius * 1.14 }];
     const pts = [];
     rows.forEach((row, ri) => {
       const ry = gy + row.dy;
       const count = Math.max(1, Math.floor((row.hw * 2) / step) + 1);
       const startX = cx - (count - 1) * step / 2 + (ri % 2) * step * 0.5;
-      for (let i = 0; i < count; i++) { const x = startX + i * step; pts.push({ x: x, ry: ry, d: Math.abs(x - cx) }); }
+      for (let i = 0; i < count; i++) {
+        const h = ihash(i * 13 + ri * 131);
+        const x = startX + i * step + ((h % 100) / 100 - 0.5) * step * 0.5;          // jitter
+        pts.push({ x: x, ry: ry + (((h >> 8) % 100) / 100 - 0.5) * levelH * 0.06, d: Math.abs(x - cx), sc: 0.9 + ((h >> 16) % 100) / 100 * 0.2 });
+      }
     });
     return pts;
   }
   // Draw a crowd: outer people first so the centre ones sit in front.
   function drawCrowd(cx, pts) {
-    const th = levelH * 0.34 * 0.4;
+    const th = levelH * 0.12;
     pts = pts.slice().sort((a, b) => b.d - a.d);
     for (const p of pts) {
       const name = p.x < cx - th ? "pinyaE" : (p.x > cx + th ? "pinyaD" : "pinya");
       const cv = sprite(name), g = SPR.geo[name]; if (!cv || !g) continue;
-      const sc = levelH / g.anchor;
+      const sc = (levelH / g.anchor) * (p.sc || 1);   // slight size variation per person
       ctx.save(); ctx.translate(p.x, p.ry); ctx.drawImage(cv, -g.cx * sc, -g.feetY * sc, cv.width * sc, cv.height * sc); ctx.restore();
     }
   }
@@ -1389,17 +1396,16 @@
     drawCrowd(cx, pts);
   }
   function pinyaIllustrated(cx, gy, radius) {
-    drawPinya(cx, gy, radius);   // colourful crowd block (like the cover), not the uniform sprites
+    if (sprite("pinya")) drawPinyaSpr(cx, gy, radius); else drawPinya(cx, gy, radius);
   }
 
   function drawPinya(cx, gy, radius) {
-    const OUT = "#23303a";
-    const PAL = ["#e23b3b", "#2f6f8f", "#3a8c4f", "#7d5ba6", "#e08a2e", "#d76a93", "#d9b42b", "#2bb3a3", "#c8402f"];
-    const ih = (n) => { n = (n ^ 61) ^ (n >>> 16); n = (n + (n << 3)) | 0; n = n ^ (n >>> 4); n = (n * 0x27d4eb2d) | 0; n = n ^ (n >>> 15); return (n >>> 0); };
+    const OUT = "#23303a", col = COLLA.shirt;        // pinya = same colour as the trunk
+    const ih = ihash;
     // one cohesive mound so the crowd reads as a single block
     ctx.fillStyle = "rgba(40,30,24,.12)";
     ctx.beginPath(); ctx.ellipse(cx, gy + 6, radius * 1.16, radius * 0.32, 0, 0, Math.PI * 2); ctx.fill();
-    const person = (x, y, s, col, inner) => {
+    const person = (x, y, s, inner) => {
       const dk = darken(col, 0.78), dir = x <= cx ? 1 : -1;
       if (inner) {                                   // raised hands reaching up toward the castell
         ctx.strokeStyle = col; ctx.lineWidth = s * 0.42; ctx.lineCap = "round";
@@ -1435,10 +1441,10 @@
       const ppl = [];
       for (let i = 0; i < count; i++) {
         const h = ih(i * 7 + ri * 101);
-        ppl.push({ x: startX + i * step + ((h % 100) / 100 - 0.5) * step * 0.4, y: ry + (((h >> 7) % 100) / 100 - 0.5) * s * 0.5, c: PAL[h % PAL.length] });
+        ppl.push({ x: startX + i * step + ((h % 100) / 100 - 0.5) * step * 0.4, y: ry + (((h >> 7) % 100) / 100 - 0.5) * s * 0.5 });
       }
       ppl.sort((a, b) => Math.abs(b.x - cx) - Math.abs(a.x - cx));   // outer first, centre on top
-      for (const p of ppl) person(p.x, p.y, s, p.c, ri >= 2);
+      for (const p of ppl) person(p.x, p.y, s, ri >= 2);
     });
   }
 

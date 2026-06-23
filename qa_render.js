@@ -398,25 +398,26 @@ const GEO = {
   pinya:{feetY:596,headY:61,cx:210,anchor:502}, pinyaD:{feetY:589,headY:66,cx:210,anchor:507}, pinyaE:{feetY:589,headY:60,cx:211,anchor:507},
 };
 const SP = {};
+const ihash=(n)=>{n=(n^61)^(n>>>16);n=(n+(n<<3))|0;n=n^(n>>>4);n=(n*0x27d4eb2d)|0;n=n^(n>>>15);return(n>>>0);};
 function pinyaPositions(cx, gy, radius){
-  const step=levelH*0.34, rowGap=levelH*0.13;
-  const rows=[{dy:-3*rowGap,hw:radius*0.55},{dy:-2*rowGap,hw:radius*0.80},{dy:-1*rowGap,hw:radius*1.00},{dy:0,hw:radius*1.12}];
+  const step=levelH*0.3, rowGap=levelH*0.12;
+  const rows=[{dy:-4*rowGap,hw:radius*0.5},{dy:-3*rowGap,hw:radius*0.72},{dy:-2*rowGap,hw:radius*0.9},{dy:-1*rowGap,hw:radius*1.04},{dy:0,hw:radius*1.14}];
   const pts=[];
   rows.forEach((row,ri)=>{
     const ry=gy+row.dy;
     const count=Math.max(1,Math.floor((row.hw*2)/step)+1);
     const startX=cx-(count-1)*step/2+(ri%2)*step*0.5;
-    for(let i=0;i<count;i++){const x=startX+i*step; pts.push({x:x,ry:ry,d:Math.abs(x-cx)});}
+    for(let i=0;i<count;i++){const h=ihash(i*13+ri*131);const x=startX+i*step+((h%100)/100-0.5)*step*0.5; pts.push({x:x,ry:ry+(((h>>8)%100)/100-0.5)*levelH*0.06,d:Math.abs(x-cx),sc:0.9+((h>>16)%100)/100*0.2});}
   });
   return pts;
 }
 function drawCrowd(cx, pts){
-  const th=levelH*0.34*0.4;
+  const th=levelH*0.12;
   pts=pts.slice().sort((a,b)=>b.d-a.d);
   for(const p of pts){
     let name = p.x < cx-th ? 'pinyaE' : (p.x > cx+th ? 'pinyaD' : 'pinya');
     const g=GEO[name], img=SP[name]; if(!img) continue;
-    const sc=levelH/g.anchor;
+    const sc=(levelH/g.anchor)*(p.sc||1);
     ctx.save(); ctx.translate(p.x, p.ry); ctx.drawImage(img, -g.cx*sc, -g.feetY*sc, img.width*sc, img.height*sc); ctx.restore();
   }
 }
