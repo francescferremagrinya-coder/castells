@@ -134,18 +134,14 @@
 <div id="ui">
   <div class="turn-banner hidden" id="turnBanner"></div>
   <div class="bars">
-    <div class="label">Equilibri</div>
-    <div class="bal-wrap"><div class="bal-zone"></div><div class="bal-mark" id="balMark"></div></div>
-    <div class="label" style="margin-top:10px">Cansament</div>
+    <div class="label">Cansament</div>
     <div class="fat-wrap"><div class="fat-fill" id="fatFill"></div></div>
   </div>
   <div class="status" id="status">Prepara la pinya…</div>
 
   <div class="ctrls">
-    <div class="ctrl" id="ctrlL"><span>◀</span></div>
     <button class="capbtn up" id="upBtn"><span class="ic">🗣️</span>Amunt</button>
     <button class="capbtn down" id="downBtn"><span class="ic">⬇️</span>Avall</button>
-    <div class="ctrl" id="ctrlR"><span>▶</span></div>
   </div>
 </div>
 
@@ -541,22 +537,12 @@
     if (fi === F - 3 && FLOORS[fi] === 2) return "els dosos";
     // pilar: real pis number (pinya=1, folre=2, manilles=3, first casteller=4…)
     if (Math.max.apply(null, FLOORS) === 1) { const pis = (state && state.pisBase || 1) + fi + 1; return ORD[pis - 2] || ("el pis " + pis); }
-    return ORDF[fi] || "amunt";
+    // wide castell: folre/manilles shift the names up (4 de 9 f → comença pels quarts)
+    return ORDF[(state && state.pisBase || 1) + fi - 1] || "amunt";
   }
 
   // ---- Input ----
-  const input = { left: false, right: false };
-  const ctrlL = document.getElementById("ctrlL");
-  const ctrlR = document.getElementById("ctrlR");
-  function bind(el, side) {
-    const on = (e) => { e.preventDefault(); if (state && state.phase === PHASE.BUILD) { buildTap(); return; } input[side] = true; el.classList.add("active"); };
-    const off = (e) => { e.preventDefault(); input[side] = false; el.classList.remove("active"); };
-    el.addEventListener("pointerdown", on);
-    el.addEventListener("pointerup", off);
-    el.addEventListener("pointercancel", off);
-    el.addEventListener("pointerleave", off);
-  }
-  bind(ctrlL, "left"); bind(ctrlR, "right");
+  const input = { left: false, right: false };   // keyboard only (desktop); on mobile, balance is tilt-only
   function tapUp() { if (state) state.wantUp = true; }
   function tapDown() { if (state) state.wantDown = true; }
   const upBtn = document.getElementById("upBtn"), downBtn = document.getElementById("downBtn");
@@ -789,13 +775,9 @@
   }
 
   // ---- UI ----
-  const balMark = document.getElementById("balMark");
   const fatFill = document.getElementById("fatFill");
   const statusEl = document.getElementById("status");
   function updateUI() {
-    balMark.style.left = (50 + state.lean * 50) + "%";
-    const d = Math.abs(state.lean);
-    balMark.style.background = d > 0.66 ? "#c94b2e" : (d > 0.4 ? "#e6a23c" : "#1c1c1c");
     fatFill.style.width = (state.fatigue * 100) + "%";
     let t = "";
     if (state.phase === PHASE.ALETA) t = "L'enxaneta fa l'aleta! 🙌";
@@ -1144,6 +1126,17 @@
     // Base layers: pinya on the ground, then folre and manilles each a full floor
     // higher (no overlap). Drawn bottom→top so the higher ring covers the lower.
     for (let i = 0; i < baseStack.length; i++) drawBaseLayer(baseStack[i].name, baseStack[i].x, baseLayerY(i) + yJump);
+
+    // Balance danger: red glow at the screen EDGES as the castell tips toward
+    // falling, so you read the balance off the castell itself (no bar to watch).
+    if (!state.auto && (state.phase === PHASE.UP || state.phase === PHASE.ALETA)) {
+      const dgr = Math.max(0, Math.min(1, (Math.abs(state.lean) - 0.5) / 0.45));
+      if (dgr > 0.01) {
+        const vg = ctx.createRadialGradient(W / 2, H * 0.52, H * 0.28, W / 2, H * 0.52, H * 0.74);
+        vg.addColorStop(0, "rgba(214,42,30,0)"); vg.addColorStop(1, "rgba(214,42,30," + (0.55 * dgr).toFixed(3) + ")");
+        ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      }
+    }
 
     // Floating "Amunt els terços!" / "Avall!" shout — big and centred.
     if (state.floorMsg && state.floorMsgT < 1.6) {
