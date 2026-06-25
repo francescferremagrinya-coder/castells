@@ -283,7 +283,7 @@
       enx: { feetY: 711, cx: 261, anchor: 525 },
       acot: { feetY: 516, cx: 210, anchor: 380 }, enxw: { feetY: 560, cx: 202, anchor: 490 },
       pinya: { feetY: 596, headY: 61, cx: 210, anchor: 502 }, pinyaD: { feetY: 589, headY: 66, cx: 210, anchor: 507 }, pinyaE: { feetY: 589, headY: 60, cx: 211, anchor: 507 },
-      pinyaBloc: { feetY: 1263, cx: 426, w: 793 },   // single illustrated pinya block (full-res), scaled to width
+      pinyaBloc: { feetY: 1263, cx: 426, w: 793, shirtY: 1150 },   // shirtY: tint light pixels above this (shirts) to the colla colour
     },
   };
   function loadSprites() {
@@ -309,11 +309,14 @@
     const x = c.getContext("2d"); x.drawImage(img, 0, 0);
     let id; try { id = x.getImageData(0, 0, W2, H2); } catch (e) { return null; }
     const d = id.data, th = rgb2hsv(parseInt(COLLA.shirt.slice(1, 3), 16), parseInt(COLLA.shirt.slice(3, 5), 16), parseInt(COLLA.shirt.slice(5, 7), 16))[0];
+    const shirtY = SPR.geo[name] && SPR.geo[name].shirtY;   // blocks: also tint the white shirts
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 10) continue;
       const hsv = rgb2hsv(d[i], d[i + 1], d[i + 2]);
-      if (hsv[1] > 0.45 && hsv[2] > 0.22 && (hsv[0] < 18 || hsv[0] > 340)) {
+      if (hsv[1] > 0.45 && hsv[2] > 0.22 && (hsv[0] < 18 || hsv[0] > 340)) {            // red mocador → colla
         const rgb = hsv2rgb(th, Math.min(1, hsv[1]), hsv[2]); d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2];
+      } else if (shirtY && hsv[1] < 0.25 && hsv[2] > 0.5 && (((i >> 2) / W2) | 0) < shirtY) {  // white shirt → colla
+        const rgb = hsv2rgb(th, 0.46, hsv[2]); d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2];
       }
     }
     x.putImageData(id, 0, 0); SPR.cache[key] = c; return c;
@@ -561,7 +564,7 @@
   });
 
   // ---- Tilt control (phone gyroscope) ----
-  const tilt = { enabled: false, gamma: 0 };
+  const tilt = { enabled: false, gamma: 0, neutral: 0 };
   window.addEventListener("deviceorientation", (e) => { if (e.gamma != null) tilt.gamma = e.gamma; }, true);
   const tiltBtn = document.getElementById("tiltBtn");
   function updateTiltBtn() { tiltBtn.style.opacity = tilt.enabled ? "1" : ".5"; }
@@ -571,15 +574,21 @@
       DOE.requestPermission().then((s) => { tilt.enabled = (s === "granted"); updateTiltBtn(); }).catch(() => {});
     } else { tilt.enabled = true; updateTiltBtn(); }
   }
-  tiltBtn.addEventListener("click", () => { if (tilt.enabled) { tilt.enabled = false; updateTiltBtn(); } else enableTilt(); });
+  // tap = re-centre the tilt to your current hold (handy if it drifts)
+  tiltBtn.addEventListener("click", () => {
+    if (!tilt.enabled) { enableTilt(); return; }
+    tilt.neutral = tilt.gamma;
+    tiltBtn.style.transform = "scale(.85)"; setTimeout(() => { tiltBtn.style.transform = ""; }, 120);
+    if (statusEl) statusEl.textContent = "Equilibri centrat 🎯";
+  });
   // Accelerometer always on: devices without a permission gate start enabled now;
   // iOS needs a user gesture, so begin() requests it when you start a castell.
   (function () { const DOE = window.DeviceOrientationEvent; if (!(DOE && typeof DOE.requestPermission === "function")) { tilt.enabled = true; updateTiltBtn(); } })();
 
   // ---- Logic ----
   function difficulty() {
-    const heightFactor = 0.55 + state.placed * 0.26;
-    const climbFactor = state.climbing ? 1.45 : 1;
+    const heightFactor = 0.5 + state.placed * 0.17;
+    const climbFactor = state.climbing ? 1.28 : 1;
     const fatigueFactor = 1 + (1 - state.fatigue) * 0.6;
     const castFactor = curCastell.diff || 1;
     const baseFactor = 1 - 0.5 * state.solidesa;       // a solid base makes it steadier
@@ -601,15 +610,16 @@
 
     noiseT += dt;
     const wobble = Math.sin(noiseT * 2.1) * 0.5 + Math.sin(noiseT * 5.3 + 1.3) * 0.3 + (Math.random() - 0.5) * 0.5;
-    state.leanVel += wobble * diff * 0.4 * dt;
-    state.leanVel += state.lean * diff * 1.42 * dt;    // instability (grows with height) — a bit harder
+    state.leanVel += wobble * diff * 0.22 * dt;        // gentler random sway
+    state.leanVel += state.lean * diff * 0.85 * dt;    // instability (slower runaway → more forgiving)
     // a good base helps, but you still have to balance the rise yourself
-    state.leanVel -= state.lean * state.solidesa * 1.1 * dt;
+    state.leanVel -= state.lean * state.solidesa * 1.3 * dt;
 
-    const control = 2.1;
+    const control = 2.6;
     if (input.left) state.leanVel -= control * dt;
     if (input.right) state.leanVel += control * dt;
-    if (tilt.enabled) { const g = Math.max(-1, Math.min(1, tilt.gamma / 20)); state.leanVel += g * control * 1.25 * dt; }
+    // tilt relative to however you're holding the phone (calibrated at begin)
+    if (tilt.enabled) { const g = Math.max(-1, Math.min(1, (tilt.gamma - tilt.neutral) / 26)); state.leanVel += g * control * 1.5 * dt; }
 
     state.leanVel *= Math.pow(0.05, dt);
     state.lean += state.leanVel * dt;
@@ -1007,11 +1017,15 @@
     const baseLayerY = (i) => groundY - (i === 0 ? 0 : baseLift + (i - 1) * levelH);
     baseY = groundY - baseLift - nReinf * levelH + levelH * 0.06; // trunk feet rest above the rings
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
-    // folre / manilles = the same pinya block, smaller, stacked on top.
+    // pinya (full) on the ground, folre/manilles smaller blocks stacked on top.
     const drawBaseLayer = (name, x, y) => {
-      if (name === "el folre") pinyaIllustrated(x, y, pinyaR * 0.66);
-      else if (name === "les manilles") pinyaIllustrated(x, y, pinyaR * 0.46);
-      else pinyaIllustrated(x, y, pinyaR);
+      if (sprite("pinyaBloc")) {
+        if (name === "el folre") drawPinyaBloc(x, y, 0.74, "folreBloc");
+        else if (name === "les manilles") drawPinyaBloc(x, y, 0.54, "folreBloc");
+        else drawPinyaBloc(x, y, 1, "pinyaBloc");
+      } else {
+        pinyaIllustrated(x, y, name === "el folre" ? pinyaR * 0.66 : name === "les manilles" ? pinyaR * 0.46 : pinyaR);
+      }
     };
     const spriteOn = !!(sprite("tronc") || sprite("pilar"));   // illustrated art available?
     const colSpacing = levelH * (spriteOn ? 0.66 : 0.74);
@@ -1130,12 +1144,15 @@
     // Balance danger: red glow at the screen EDGES as the castell tips toward
     // falling, so you read the balance off the castell itself (no bar to watch).
     if (!state.auto && (state.phase === PHASE.UP || state.phase === PHASE.ALETA)) {
-      const dgr = Math.max(0, Math.min(1, (Math.abs(state.lean) - 0.38) / 0.5));
+      const dgr = Math.max(0, Math.min(1, (Math.abs(state.lean) - 0.3) / 0.55));
       if (dgr > 0.01) {
-        const pulse = 0.7 + 0.3 * Math.sin(ANIM * 9), a = 0.9 * dgr * pulse;
-        const vg = ctx.createRadialGradient(W / 2, H * 0.5, H * 0.16, W / 2, H * 0.5, H * 0.72);
-        vg.addColorStop(0, "rgba(222,40,30,0)"); vg.addColorStop(0.62, "rgba(222,40,30," + (a * 0.32).toFixed(3) + ")"); vg.addColorStop(1, "rgba(222,40,30," + a.toFixed(3) + ")");
+        const pulse = 0.6 + 0.4 * Math.sin(ANIM * 10), a = Math.min(1, 1.1 * dgr) * pulse;
+        const vg = ctx.createRadialGradient(W / 2, H * 0.5, H * 0.12, W / 2, H * 0.5, H * 0.7);
+        vg.addColorStop(0, "rgba(225,38,28,0)"); vg.addColorStop(0.5, "rgba(225,38,28," + (a * 0.28).toFixed(3) + ")"); vg.addColorStop(1, "rgba(225,38,28," + (a * 0.92).toFixed(3) + ")");
         ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+        const bw = 8 + 16 * dgr;                          // bold pulsing red border frame
+        ctx.strokeStyle = "rgba(225,38,28," + a.toFixed(3) + ")"; ctx.lineWidth = bw;
+        ctx.strokeRect(bw / 2, bw / 2, W - bw, H - bw);
       }
     }
 
@@ -1395,16 +1412,20 @@
     const pts = pinyaPositions(cx, gy, radius).sort((a, b) => a.d - b.d).slice(0, Math.max(1, limit));
     drawCrowd(cx, pts);
   }
-  // Single illustrated pinya block, scaled to the base width, feet on the ground.
-  function drawPinyaBloc(cx, gy, radius) {
-    const cv = sprite("pinyaBloc"), g = SPR.geo.pinyaBloc; if (!cv || !g) { drawPinya(cx, gy, radius); return; }
-    const sc = (radius * 2.15) / g.w;
+  // Single illustrated pinya/folre block. Person-size is tied to levelH so the
+  // crowd matches the trunk castellers (much smaller than before). `f` scales it
+  // down for folre/manilles; `src` picks the folre image (falls back to pinya).
+  function drawPinyaBloc(cx, gy, f, src) {
+    let cv = sprite(src || "pinyaBloc"), g = SPR.geo[src || "pinyaBloc"];
+    if (!cv) { cv = sprite("pinyaBloc"); g = SPR.geo.pinyaBloc; }
+    if (!cv || !g) { drawPinya(cx, gy, levelH * 2.6 * f); return; }
+    const sc = (levelH * 4.0 * f) / g.w;
     ctx.save(); ctx.translate(cx, gy);
     ctx.drawImage(cv, -g.cx * sc, -g.feetY * sc, cv.width * sc, cv.height * sc);
     ctx.restore();
   }
   function pinyaIllustrated(cx, gy, radius) {
-    if (sprite("pinyaBloc")) drawPinyaBloc(cx, gy, radius);
+    if (sprite("pinyaBloc")) drawPinyaBloc(cx, gy, 1);
     else if (sprite("pinya")) drawPinyaSpr(cx, gy, radius);
     else drawPinya(cx, gy, radius);
   }
@@ -1758,6 +1779,7 @@
     state.phase = PHASE.UP;                  // straight to play: equilibri + cap de colla
     state.solidesa = assaig ? 0.5 : 0.4;     // assaig una mica més estable
     if (!state.auto && !tilt.enabled) enableTilt(); // accelerometer on (iOS asks here, on the gesture)
+    if (!state.auto) tilt.neutral = tilt.gamma;     // calibrate: current hold = upright
     Sound.setTune("toc"); Sound.ensure();
     screen = "game";
     hideScreens();
