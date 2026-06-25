@@ -283,7 +283,7 @@
       enx: { feetY: 711, cx: 261, anchor: 525 },
       acot: { feetY: 776, cx: 421, anchor: 330 }, enxw: { feetY: 560, cx: 200, anchor: 490 },
       pinya: { feetY: 596, headY: 61, cx: 210, anchor: 502 }, pinyaD: { feetY: 589, headY: 66, cx: 210, anchor: 507 }, pinyaE: { feetY: 589, headY: 60, cx: 211, anchor: 507 },
-      pinyaBloc: { feetY: 1263, cx: 426, w: 793, shirtY: 1150 },   // shirtY: tint light pixels above this (shirts) to the colla colour
+      pinyaBloc: { feetY: 1263, cx: 426, w: 793 },   // single illustrated pinya block (red shirts → colla)
       folreBloc: { feetY: 1263, cx: 470, w: 542 },
     },
   };
@@ -1011,10 +1011,10 @@
     // below (no overlap), and the trunk starts on top of the highest one.
     const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
     const nReinf = baseStack.length - 1;     // folre + manilles
-    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 2.0 + 1.9));
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 1.55 + 1.9));
     const folreLift = levelH * 0.45;   // folre nestles low IN the pinya (no gap)
     const trunkLift = levelH * 1.0;    // the segons rest ON the pinya (not buried)
-    const reinfStep = levelH * 2.0;    // bigger folre reaches up ~2 floors to the trunk
+    const reinfStep = levelH * 1.55;   // folre reaches up to the trunk (no gap)
     // y of base layer i (0 = pinya on the ground, then a reinforcement ring per step)
     const baseLayerY = (i) => groundY - (i === 0 ? 0 : folreLift + (i - 1) * reinfStep);
     baseY = (nReinf > 0 ? groundY - folreLift - nReinf * reinfStep : groundY - trunkLift) + levelH * 0.06;
