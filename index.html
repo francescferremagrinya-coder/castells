@@ -276,7 +276,7 @@
   // Each pose PNG has its shirt/mocador in red; we recolour that red to the colla.
   const SPR = {
     imgs: {}, cache: {},
-    files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar", acot: "casteller_acotxador", enxw: "casteller_enxaneta", pinya: "casteller_pinya", pinyaD: "casteller_pinya_dreta", pinyaE: "casteller_pinya_esquerra", pinyaBloc: "pinya_bloc" },
+    files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar", acot: "casteller_acotxador", enxw: "casteller_enxaneta", pinya: "casteller_pinya", pinyaD: "casteller_pinya_dreta", pinyaE: "casteller_pinya_esquerra", pinyaBloc: "pinya_bloc", folreBloc: "folre_bloc" },
     geo: {  // half-res sprites (downscaled for fast loading): coords are original/2
       tronc: { feetY: 676, cx: 256, anchor: 500 }, esquena: { feetY: 558, cx: 212, anchor: 430 },
       perfil: { feetY: 684, cx: 180, anchor: 502 }, pilar: { feetY: 726, cx: 257, anchor: 505 },
@@ -284,6 +284,7 @@
       acot: { feetY: 516, cx: 210, anchor: 380 }, enxw: { feetY: 560, cx: 202, anchor: 490 },
       pinya: { feetY: 596, headY: 61, cx: 210, anchor: 502 }, pinyaD: { feetY: 589, headY: 66, cx: 210, anchor: 507 }, pinyaE: { feetY: 589, headY: 60, cx: 211, anchor: 507 },
       pinyaBloc: { feetY: 1263, cx: 426, w: 793, shirtY: 1150 },   // shirtY: tint light pixels above this (shirts) to the colla colour
+      folreBloc: { feetY: 1263, cx: 470, w: 542, shirtY: 880 },
     },
   };
   function loadSprites() {
@@ -1011,17 +1012,17 @@
     // below (no overlap), and the trunk starts on top of the highest one.
     const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
     const nReinf = baseStack.length - 1;     // folre + manilles
-    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf + 1.5));
-    const baseLift = levelH * 0.8;           // pinya shoulders → first layer above it
-    // y of base layer i (0 = pinya on the ground, then a full floor per ring)
-    const baseLayerY = (i) => groundY - (i === 0 ? 0 : baseLift + (i - 1) * levelH);
-    baseY = groundY - baseLift - nReinf * levelH + levelH * 0.06; // trunk feet rest above the rings
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 0.62 + 1.4));
+    const baseLift = levelH * 0.65, reinfStep = levelH * 0.62;  // small blocks nestle, not a full floor each
+    // y of base layer i (0 = pinya on the ground, then a reinforcement ring per step)
+    const baseLayerY = (i) => groundY - (i === 0 ? 0 : baseLift + (i - 1) * reinfStep);
+    baseY = groundY - baseLift - nReinf * reinfStep + levelH * 0.06; // trunk feet rest above the rings
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
     // pinya (full) on the ground, folre/manilles smaller blocks stacked on top.
     const drawBaseLayer = (name, x, y) => {
       if (sprite("pinyaBloc")) {
-        if (name === "el folre") drawPinyaBloc(x, y, 0.74, "folreBloc");
-        else if (name === "les manilles") drawPinyaBloc(x, y, 0.54, "folreBloc");
+        if (name === "el folre") drawPinyaBloc(x, y, 0.55, "folreBloc");
+        else if (name === "les manilles") drawPinyaBloc(x, y, 0.42, "folreBloc");
         else drawPinyaBloc(x, y, 1, "pinyaBloc");
       } else {
         pinyaIllustrated(x, y, name === "el folre" ? pinyaR * 0.66 : name === "les manilles" ? pinyaR * 0.46 : pinyaR);
