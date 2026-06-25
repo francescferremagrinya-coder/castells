@@ -342,7 +342,7 @@
     { id: "t3de6", name: "3 de 6", gamma: 0, floors: wideFloors(3, 6), diff: 0.95, pts: { carr: 150, desc: 175 } },
     { id: "t4de6", name: "4 de 6", gamma: 0, floors: wideFloors(4, 6), diff: 1.0, pts: { carr: 165, desc: 190 } },
     { id: "p5", name: "Pilar de 5", gamma: 0, floors: pilarFloors(5), diff: 1.05, pts: { carr: 185, desc: 210 } },
-    { id: "t2de6", name: "Torre de 6", gamma: 0, floors: wideFloors(2, 6), diff: 1.1, pts: { carr: 175, desc: 200 } },
+    { id: "t2de6", name: "2 de 6", gamma: 0, floors: wideFloors(2, 6), diff: 1.1, pts: { carr: 175, desc: 200 } },
     { id: "t4de7", name: "4 de 7", gamma: 0, floors: wideFloors(4, 7), diff: 1.15, pts: { carr: 240, desc: 275 } },
     { id: "t3de7", name: "3 de 7", gamma: 0, floors: wideFloors(3, 7), diff: 1.22, pts: { carr: 250, desc: 290 } },
     { id: "t5de7", name: "5 de 7", gamma: 0, floors: wideFloors(5, 7), diff: 1.3, pts: { carr: 365, desc: 420 } },
@@ -1011,9 +1011,9 @@
     // below (no overlap), and the trunk starts on top of the highest one.
     const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
     const nReinf = baseStack.length - 1;     // folre + manilles
-    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 2.0 + 1.4));
-    const folreLift = levelH * 0.35;   // folre nestles low IN the pinya (no gap)
-    const trunkLift = levelH * 0.7;    // a plain trunk sits on the pinya's shoulders
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 2.0 + 1.9));
+    const folreLift = levelH * 0.45;   // folre nestles low IN the pinya (no gap)
+    const trunkLift = levelH * 1.0;    // the segons rest ON the pinya (not buried)
     const reinfStep = levelH * 2.0;    // bigger folre reaches up ~2 floors to the trunk
     // y of base layer i (0 = pinya on the ground, then a reinforcement ring per step)
     const baseLayerY = (i) => groundY - (i === 0 ? 0 : folreLift + (i - 1) * reinfStep);
@@ -1056,7 +1056,7 @@
     const f0 = state.floor0 || 1, fOff = state.floorOffset || [];
     const cxFloor = (fi) => cxBase + ((fi < f0 && fOff[fi] !== undefined ? fOff[fi] : (state.baseOffsetX || 0)) - (state.baseOffsetX || 0));
     // enxaneta, acotxador AND dosos are kids → smaller
-    const kidScale = (fi) => fi === F - 1 ? 0.72 : fi === F - 2 ? 0.74 : (!isPilar && fi === F - 3 && FLOORS[fi] >= 2 ? 0.8 : 1);
+    const kidScale = (fi) => fi === F - 1 ? 0.9 : fi === F - 2 ? 1 : (!isPilar && fi === F - 3 && FLOORS[fi] >= 2 ? 0.88 : 1); // acotxador/enxaneta a mida normal
     const yLift = (fi) => fi === F - 1 ? levelH * 0.03 : 0; // enxaneta sits just on the acotxador
 
     // --- the castell has fallen: castellers tumble onto the pinya ---
@@ -1422,7 +1422,7 @@
     let cv = sprite(src || "pinyaBloc"), g = SPR.geo[src || "pinyaBloc"];
     if (!cv) { cv = sprite("pinyaBloc"); g = SPR.geo.pinyaBloc; }
     if (!cv || !g) { drawPinya(cx, gy, levelH * 2.6 * f); return; }
-    const sc = (levelH * 4.0 * f) / g.w;
+    const sc = (levelH * 3.5 * f) / g.w;
     ctx.save(); ctx.translate(cx, gy);
     ctx.drawImage(cv, -g.cx * sc, -g.feetY * sc, cv.width * sc, cv.height * sc);
     ctx.restore();

@@ -445,7 +445,7 @@ function renderMulti(floors, file, base){
   const baseLift=levelH*0.8, baseLayerY=(i)=>groundY-(i===0?0:baseLift+(i-1)*levelH);
   const baseY=groundY-baseLift-nReinf*levelH+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
   const fy=[];let c2=0;for(let i=0;i<F;i++){fy[i]=baseY-levelH*c2;c2+=floorMul(i,F,isPilar);}
-  const kidScale=(fi)=> fi===F-1?0.72 : fi===F-2?0.74 : (!isPilar&&fi===F-3&&floors[fi]>=2?0.8:1);
+  const kidScale=(fi)=> fi===F-1?0.9 : fi===F-2?1 : (!isPilar&&fi===F-3&&floors[fi]>=2?0.88:1);
   const yLift=(fi)=> fi===F-1?levelH*0.03:0;
   for(let fi=F-1;fi>=0;fi--){
     const w=floors[fi], isEnx=fi===F-1, isAcot=fi===F-2, kid=kidScale(fi);
