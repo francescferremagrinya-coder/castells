@@ -1011,10 +1011,10 @@
     // below (no overlap), and the trunk starts on top of the highest one.
     const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
     const nReinf = baseStack.length - 1;     // folre + manilles
-    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 1.55 + 1.9));
-    const folreLift = levelH * 0.45;   // folre nestles low IN the pinya (no gap)
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 1.75 + 1.9));
+    const folreLift = levelH * 0.18;   // folre TOUCHES the pinya (nestled, no gap)
     const trunkLift = levelH * 1.0;    // the segons rest ON the pinya (not buried)
-    const reinfStep = levelH * 1.55;   // folre reaches up to the trunk (no gap)
+    const reinfStep = levelH * 1.75;   // (bigger) folre reaches up to the trunk (no gap)
     // y of base layer i (0 = pinya on the ground, then a reinforcement ring per step)
     const baseLayerY = (i) => groundY - (i === 0 ? 0 : folreLift + (i - 1) * reinfStep);
     baseY = (nReinf > 0 ? groundY - folreLift - nReinf * reinfStep : groundY - trunkLift) + levelH * 0.06;
@@ -1023,7 +1023,7 @@
     const pinyaF = 0.82 + maxW * 0.06;   // wider pinya for wider castells (so the segons rest on it)
     const drawBaseLayer = (name, x, y) => {
       const isFolre = name === "el folre" || name === "les manilles";
-      if (isFolre && sprite("folreBloc")) drawPinyaBloc(x, y, pinyaF * 0.52, "folreBloc");
+      if (isFolre && sprite("folreBloc")) drawPinyaBloc(x, y, pinyaF * 0.62, "folreBloc");
       else if (!isFolre && sprite("pinyaBloc")) drawPinyaBloc(x, y, pinyaF, "pinyaBloc");
       else pinyaIllustrated(x, y, name === "el folre" ? pinyaR * 0.66 : name === "les manilles" ? pinyaR * 0.46 : pinyaR);
     };
@@ -1856,6 +1856,9 @@
   });
 
   // ---- Boot ----
+  // stop the music when you leave the page (lock the phone, switch app/tab)
+  document.addEventListener("visibilitychange", () => { if (document.hidden) Sound.stop(); });
+  window.addEventListener("pagehide", () => Sound.stop());
   loadSprites();
   loadSave();
   if (save.colla) { COLLA.name = save.colla.name; setShirt(save.colla.color); showHome(); }
