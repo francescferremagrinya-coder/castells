@@ -313,8 +313,9 @@
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 10) continue;
       const hsv = rgb2hsv(d[i], d[i + 1], d[i + 2]);
-      // only SATURATED red (shirt + mocador) → colla; skin is reddish but less saturated, so it's spared
-      if (hsv[1] > 0.6 && hsv[2] > 0.25 && (hsv[0] < 18 || hsv[0] > 340)) {
+      // only SATURATED, pure-red pixels (shirt + mocador) → colla. Skin and the
+      // espardenyes are reddish-ORANGE (higher hue) and less saturated, so spared.
+      if (hsv[1] > 0.62 && hsv[2] > 0.25 && (hsv[0] < 11 || hsv[0] > 349)) {
         const rgb = hsv2rgb(th, Math.min(1, hsv[1]), hsv[2]); d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2];
       }
     }
