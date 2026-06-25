@@ -284,7 +284,7 @@
       acot: { feetY: 776, cx: 421, anchor: 330 }, enxw: { feetY: 560, cx: 200, anchor: 490 },
       pinya: { feetY: 596, headY: 61, cx: 210, anchor: 502 }, pinyaD: { feetY: 589, headY: 66, cx: 210, anchor: 507 }, pinyaE: { feetY: 589, headY: 60, cx: 211, anchor: 507 },
       pinyaBloc: { feetY: 1263, cx: 426, w: 793, shirtY: 1150 },   // shirtY: tint light pixels above this (shirts) to the colla colour
-      folreBloc: { feetY: 1263, cx: 470, w: 542, shirtY: 880 },
+      folreBloc: { feetY: 1263, cx: 470, w: 542 },
     },
   };
   function loadSprites() {
@@ -1022,13 +1022,10 @@
     // pinya (full) on the ground, folre/manilles smaller blocks stacked on top.
     const pinyaF = 0.82 + maxW * 0.06;   // wider pinya for wider castells (so the segons rest on it)
     const drawBaseLayer = (name, x, y) => {
-      if (sprite("pinyaBloc")) {
-        if (name === "el folre") drawPinyaBloc(x, y, pinyaF * 0.52, "folreBloc");
-        else if (name === "les manilles") drawPinyaBloc(x, y, pinyaF * 0.52, "folreBloc");
-        else drawPinyaBloc(x, y, pinyaF, "pinyaBloc");
-      } else {
-        pinyaIllustrated(x, y, name === "el folre" ? pinyaR * 0.66 : name === "les manilles" ? pinyaR * 0.46 : pinyaR);
-      }
+      const isFolre = name === "el folre" || name === "les manilles";
+      if (isFolre && sprite("folreBloc")) drawPinyaBloc(x, y, pinyaF * 0.52, "folreBloc");
+      else if (!isFolre && sprite("pinyaBloc")) drawPinyaBloc(x, y, pinyaF, "pinyaBloc");
+      else pinyaIllustrated(x, y, name === "el folre" ? pinyaR * 0.66 : name === "les manilles" ? pinyaR * 0.46 : pinyaR);
     };
     const spriteOn = !!(sprite("tronc") || sprite("pilar"));   // illustrated art available?
     const colSpacing = levelH * (spriteOn ? 0.66 : 0.74);
