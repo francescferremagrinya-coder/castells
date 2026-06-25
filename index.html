@@ -313,7 +313,8 @@
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 10) continue;
       const hsv = rgb2hsv(d[i], d[i + 1], d[i + 2]);
-      if (hsv[1] > 0.45 && hsv[2] > 0.22 && (hsv[0] < 18 || hsv[0] > 340)) {            // red (shirt+mocador) → colla
+      // only SATURATED red (shirt + mocador) → colla; skin is reddish but less saturated, so it's spared
+      if (hsv[1] > 0.6 && hsv[2] > 0.25 && (hsv[0] < 18 || hsv[0] > 340)) {
         const rgb = hsv2rgb(th, Math.min(1, hsv[1]), hsv[2]); d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2];
       }
     }
@@ -1603,7 +1604,7 @@
           '<div><div class="c-name">' + (open ? (save.done[c.id] ? "✓ " : "") : "🔒 ") + castName(c) + '</div>' +
           '<div class="c-meta">' + meta + '</div></div>' +
           '<div class="c-best">' + (open ? (save.best[c.id] ? save.best[c.id] + " pts" : "Juga") : "") + '</div>';
-        if (open) row.addEventListener("click", () => begin(c, false));
+        if (open) row.addEventListener("click", () => begin(c, true));
         list.appendChild(row);
       });
     }
