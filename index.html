@@ -278,10 +278,10 @@
     imgs: {}, cache: {},
     files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar", acot: "casteller_acotxador", enxw: "casteller_enxaneta", pinya: "casteller_pinya", pinyaD: "casteller_pinya_dreta", pinyaE: "casteller_pinya_esquerra", pinyaBloc: "pinya_bloc", folreBloc: "folre_bloc" },
     geo: {  // half-res sprites (downscaled for fast loading): coords are original/2
-      tronc: { feetY: 676, cx: 256, anchor: 500 }, esquena: { feetY: 558, cx: 212, anchor: 430 },
-      perfil: { feetY: 684, cx: 180, anchor: 502 }, pilar: { feetY: 726, cx: 257, anchor: 505 },
+      tronc: { feetY: 676, cx: 256, anchor: 500 }, esquena: { feetY: 1140, cx: 427, anchor: 806 },
+      perfil: { feetY: 1036, cx: 393, anchor: 639 }, pilar: { feetY: 726, cx: 257, anchor: 505 },
       enx: { feetY: 711, cx: 261, anchor: 525 },
-      acot: { feetY: 516, cx: 210, anchor: 380 }, enxw: { feetY: 560, cx: 202, anchor: 490 },
+      acot: { feetY: 776, cx: 421, anchor: 470 }, enxw: { feetY: 560, cx: 202, anchor: 490 },
       pinya: { feetY: 596, headY: 61, cx: 210, anchor: 502 }, pinyaD: { feetY: 589, headY: 66, cx: 210, anchor: 507 }, pinyaE: { feetY: 589, headY: 60, cx: 211, anchor: 507 },
       pinyaBloc: { feetY: 1263, cx: 426, w: 793, shirtY: 1150 },   // shirtY: tint light pixels above this (shirts) to the colla colour
       folreBloc: { feetY: 1263, cx: 470, w: 542, shirtY: 880 },
@@ -310,14 +310,11 @@
     const x = c.getContext("2d"); x.drawImage(img, 0, 0);
     let id; try { id = x.getImageData(0, 0, W2, H2); } catch (e) { return null; }
     const d = id.data, th = rgb2hsv(parseInt(COLLA.shirt.slice(1, 3), 16), parseInt(COLLA.shirt.slice(3, 5), 16), parseInt(COLLA.shirt.slice(5, 7), 16))[0];
-    const shirtY = SPR.geo[name] && SPR.geo[name].shirtY;   // blocks: also tint the white shirts
     for (let i = 0; i < d.length; i += 4) {
       if (d[i + 3] < 10) continue;
       const hsv = rgb2hsv(d[i], d[i + 1], d[i + 2]);
-      if (hsv[1] > 0.45 && hsv[2] > 0.22 && (hsv[0] < 18 || hsv[0] > 340)) {            // red mocador → colla
+      if (hsv[1] > 0.45 && hsv[2] > 0.22 && (hsv[0] < 18 || hsv[0] > 340)) {            // red (shirt+mocador) → colla
         const rgb = hsv2rgb(th, Math.min(1, hsv[1]), hsv[2]); d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2];
-      } else if (shirtY && hsv[1] < 0.25 && hsv[2] > 0.5 && (((i >> 2) / W2) | 0) < shirtY) {  // white shirt → colla
-        const rgb = hsv2rgb(th, 0.46, hsv[2]); d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2];
       }
     }
     x.putImageData(id, 0, 0); SPR.cache[key] = c; return c;
@@ -1012,17 +1009,19 @@
     // below (no overlap), and the trunk starts on top of the highest one.
     const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
     const nReinf = baseStack.length - 1;     // folre + manilles
-    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 0.62 + 1.4));
-    const baseLift = levelH * 0.65, reinfStep = levelH * 0.62;  // small blocks nestle, not a full floor each
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 1.55 + 1.4));
+    const folreLift = levelH * 0.35;   // folre nestles low IN the pinya (no gap)
+    const trunkLift = levelH * 0.7;    // a plain trunk sits on the pinya's shoulders
+    const reinfStep = levelH * 1.55;   // each ring's support height (the block reaches up a lot)
     // y of base layer i (0 = pinya on the ground, then a reinforcement ring per step)
-    const baseLayerY = (i) => groundY - (i === 0 ? 0 : baseLift + (i - 1) * reinfStep);
-    baseY = groundY - baseLift - nReinf * reinfStep + levelH * 0.06; // trunk feet rest above the rings
+    const baseLayerY = (i) => groundY - (i === 0 ? 0 : folreLift + (i - 1) * reinfStep);
+    baseY = (nReinf > 0 ? groundY - folreLift - nReinf * reinfStep : groundY - trunkLift) + levelH * 0.06;
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
     // pinya (full) on the ground, folre/manilles smaller blocks stacked on top.
     const drawBaseLayer = (name, x, y) => {
       if (sprite("pinyaBloc")) {
-        if (name === "el folre") drawPinyaBloc(x, y, 0.55, "folreBloc");
-        else if (name === "les manilles") drawPinyaBloc(x, y, 0.42, "folreBloc");
+        if (name === "el folre") drawPinyaBloc(x, y, 0.40, "folreBloc");
+        else if (name === "les manilles") drawPinyaBloc(x, y, 0.40, "folreBloc");
         else drawPinyaBloc(x, y, 1, "pinyaBloc");
       } else {
         pinyaIllustrated(x, y, name === "el folre" ? pinyaR * 0.66 : name === "les manilles" ? pinyaR * 0.46 : pinyaR);
@@ -1822,6 +1821,8 @@
     }
     if (pts > (save.best[curCastell.id] || 0)) save.best[curCastell.id] = pts;
     persist();
+    // in assaig, offer to go back to the castell list ("Castells") to pick the next one
+    document.getElementById("menuBtn").textContent = state.assaig ? "Castells" : "Menú";
     hideScreens();
     endScreen.classList.remove("hidden");
   }
@@ -1844,7 +1845,7 @@
   document.getElementById("actStart").addEventListener("click", startActuacio);
   document.getElementById("actNext").addEventListener("click", () => { if (actNextAction) actNextAction(); });
   document.getElementById("actMenu").addEventListener("click", showHome);
-  document.getElementById("menuBtn").addEventListener("click", showHome);
+  document.getElementById("menuBtn").addEventListener("click", () => { if (state && state.assaig) showAssaig(); else showHome(); });
   document.getElementById("retryBtn").addEventListener("click", () => begin(curCastell, state.assaig));
 
   const soundBtn = document.getElementById("soundBtn");
