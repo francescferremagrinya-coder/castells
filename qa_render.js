@@ -282,8 +282,9 @@ render(6, false, true, 0, "/tmp/full.png");
 render(3, true, true, 0.6, "/tmp/climb.png");
 
 // wide-trunk castell composition (Phase 1 of the new engine)
-function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
-function wideFloorsR(width, num, reinf) { const T = num - 4 - reinf; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
+const pom=(width)=>width>=5?[4,2,1]:[2,1,1];
+function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); return f.concat(pom(width)); }
+function wideFloorsR(width, num, reinf) { const T = num - 4 - reinf; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); return f.concat(pom(width)); }
 // plan-view layout of a floor: people aligned (same height); some at the back (centre)
 function layout(w) {
   if (w <= 1) return [{ dx: 0, dy: 0, back: false }];
@@ -292,7 +293,7 @@ function layout(w) {
   if (w === 4) return [{ dx: -0.32, dy: 0, back: true }, { dx: 0.32, dy: 0, back: true }, { dx: -0.66, dy: 0, back: false }, { dx: 0.66, dy: 0, back: false }];
   return [{ dx: -0.34, dy: 0, back: true }, { dx: 0.34, dy: 0, back: true }, { dx: -0.72, dy: 0, back: false }, { dx: 0, dy: 0, back: false }, { dx: 0.72, dy: 0, back: false }].slice(0, w);
 }
-function floorMul(fi, F, isPilar) { if (fi === F - 2) return isPilar ? 0.72 : 0.5; if (!isPilar && fi === F - 3) return 0.74; return 1; }
+function floorMul(fi, F, isPilar) { if (fi === F - 2) return isPilar ? 0.72 : 0.4; if (!isPilar && fi === F - 3) return 0.68; return 1; }
 // A stylised village square with the town hall (ajuntament) behind.
 function drawPlaca(groundY) {
   const by = groundY + 4;
@@ -394,7 +395,7 @@ const GEO = {
   tronc:{feetY:676,cx:256,anchor:500}, esquena:{feetY:1140,cx:427,anchor:806},
   perfil:{feetY:1036,cx:393,anchor:639}, pilar:{feetY:726,cx:257,anchor:505},
   enx:{feetY:711,cx:261,anchor:525},
-  acot:{feetY:776,cx:421,anchor:470}, enxw:{feetY:560,cx:202,anchor:490},
+  acot:{feetY:776,cx:421,anchor:330}, enxw:{feetY:560,cx:202,anchor:490},
   pinya:{feetY:596,headY:61,cx:210,anchor:502}, pinyaD:{feetY:589,headY:66,cx:210,anchor:507}, pinyaE:{feetY:589,headY:60,cx:211,anchor:507},
 };
 const SP = {};
@@ -445,7 +446,7 @@ function renderMulti(floors, file, base){
   const baseY=groundY-baseLift-nReinf*levelH+levelH*0.06, cxBase=W/2, colSpacing=levelH*(isPilar?0.7:0.66);
   const fy=[];let c2=0;for(let i=0;i<F;i++){fy[i]=baseY-levelH*c2;c2+=floorMul(i,F,isPilar);}
   const kidScale=(fi)=> fi===F-1?0.72 : fi===F-2?0.74 : (!isPilar&&fi===F-3&&floors[fi]>=2?0.8:1);
-  const yLift=(fi)=> fi===F-1?levelH*0.14:0;
+  const yLift=(fi)=> fi===F-1?levelH*0.03:0;
   for(let fi=F-1;fi>=0;fi--){
     const w=floors[fi], isEnx=fi===F-1, isAcot=fi===F-2, kid=kidScale(fi);
     const lay=layout(w).slice().sort((a,b)=>(a.back===b.back)?0:(a.back?-1:1));

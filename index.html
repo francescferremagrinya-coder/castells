@@ -281,7 +281,7 @@
       tronc: { feetY: 676, cx: 256, anchor: 500 }, esquena: { feetY: 1140, cx: 427, anchor: 806 },
       perfil: { feetY: 1036, cx: 393, anchor: 639 }, pilar: { feetY: 726, cx: 257, anchor: 505 },
       enx: { feetY: 711, cx: 261, anchor: 525 },
-      acot: { feetY: 776, cx: 421, anchor: 470 }, enxw: { feetY: 560, cx: 202, anchor: 490 },
+      acot: { feetY: 776, cx: 421, anchor: 330 }, enxw: { feetY: 560, cx: 200, anchor: 490 },
       pinya: { feetY: 596, headY: 61, cx: 210, anchor: 502 }, pinyaD: { feetY: 589, headY: 66, cx: 210, anchor: 507 }, pinyaE: { feetY: 589, headY: 60, cx: 211, anchor: 507 },
       pinyaBloc: { feetY: 1263, cx: 426, w: 793, shirtY: 1150 },   // shirtY: tint light pixels above this (shirts) to the colla colour
       folreBloc: { feetY: 1263, cx: 470, w: 542, shirtY: 880 },
@@ -327,10 +327,12 @@
   // Pilar with reinforcement: folre/manilles are pisos of their own, so the visible
   // pilar castellers are fewer (pinya=1, folre=2, manilles=3, first casteller=4…).
   function pilarFloorsR(num, reinf) { const f = []; for (let k = 0; k < num - 1 - reinf; k++) f.push(1); return f; }
-  function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
+  // pom de dalt: castells de 5 fan 4 dosos + 2 acotxadors + enxaneta; la resta, 2 + 1 + 1
+  const pom = (width) => width >= 5 ? [4, 2, 1] : [2, 1, 1];
+  function wideFloors(width, num) { const T = num - 4; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); return f.concat(pom(width)); }
   // Wide castell with folre/manilles: the rings are pisos of their own, so the
   // visible trunk loses `reinf` floors (folre = pis 2, manilles = pis 3…).
-  function wideFloorsR(width, num, reinf) { const T = num - 4 - reinf; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); f.push(2, 1, 1); return f; }
+  function wideFloorsR(width, num, reinf) { const T = num - 4 - reinf; const f = []; for (let k = 0; k < Math.max(0, T); k++) f.push(width); return f.concat(pom(width)); }
   const peopleOf = (c) => c.floors.reduce((a, b) => a + b, 0);
   // gamma: 0 = baixa (6 i 7), 1 = superior (8 i primers 9 amb folre),
   //        2 = extra (9 d'alta dificultat, 10 pisos i estructures netes).
@@ -487,7 +489,7 @@
     if (w === 4) return [{ dx: -0.32, dy: 0, back: true }, { dx: 0.32, dy: 0, back: true }, { dx: -0.66, dy: 0, back: false }, { dx: 0.66, dy: 0, back: false }];
     return [{ dx: -0.34, dy: 0, back: true }, { dx: 0.34, dy: 0, back: true }, { dx: -0.72, dy: 0, back: false }, { dx: 0, dy: 0, back: false }, { dx: 0.72, dy: 0, back: false }].slice(0, w);
   }
-  const floorMul = (fi, isPilar) => fi === F - 2 ? (isPilar ? 0.72 : 0.5) : (!isPilar && fi === F - 3 ? 0.74 : 1); // acotxador / dosos compression
+  const floorMul = (fi, isPilar) => fi === F - 2 ? (isPilar ? 0.72 : 0.4) : (!isPilar && fi === F - 3 ? 0.68 : 1); // acotxador / dosos compression
   const PHASE = { READY: 0, UP: 1, ALETA: 2, DOWN: 3, WIN: 4, FALL: 5, BUILD: 6, CELEBRATE: 7 };
 
   let state = null;
@@ -536,7 +538,7 @@
   function floorLabel(fi) {
     if (fi === F - 1) return "l'enxaneta";
     if (fi === F - 2) return "l'acotxador";
-    if (fi === F - 3 && FLOORS[fi] === 2) return "els dosos";
+    if (fi === F - 3 && FLOORS[fi] >= 2) return "els dosos";
     // pilar: real pis number (pinya=1, folre=2, manilles=3, first casteller=4…)
     if (Math.max.apply(null, FLOORS) === 1) { const pis = (state && state.pisBase || 1) + fi + 1; return ORD[pis - 2] || ("el pis " + pis); }
     // wide castell: folre/manilles shift the names up (4 de 9 f → comença pels quarts)
@@ -1009,20 +1011,21 @@
     // below (no overlap), and the trunk starts on top of the highest one.
     const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
     const nReinf = baseStack.length - 1;     // folre + manilles
-    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 1.55 + 1.4));
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 2.0 + 1.4));
     const folreLift = levelH * 0.35;   // folre nestles low IN the pinya (no gap)
     const trunkLift = levelH * 0.7;    // a plain trunk sits on the pinya's shoulders
-    const reinfStep = levelH * 1.55;   // each ring's support height (the block reaches up a lot)
+    const reinfStep = levelH * 2.0;    // bigger folre reaches up ~2 floors to the trunk
     // y of base layer i (0 = pinya on the ground, then a reinforcement ring per step)
     const baseLayerY = (i) => groundY - (i === 0 ? 0 : folreLift + (i - 1) * reinfStep);
     baseY = (nReinf > 0 ? groundY - folreLift - nReinf * reinfStep : groundY - trunkLift) + levelH * 0.06;
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
     // pinya (full) on the ground, folre/manilles smaller blocks stacked on top.
+    const pinyaF = 0.82 + maxW * 0.06;   // wider pinya for wider castells (so the segons rest on it)
     const drawBaseLayer = (name, x, y) => {
       if (sprite("pinyaBloc")) {
-        if (name === "el folre") drawPinyaBloc(x, y, 0.40, "folreBloc");
-        else if (name === "les manilles") drawPinyaBloc(x, y, 0.40, "folreBloc");
-        else drawPinyaBloc(x, y, 1, "pinyaBloc");
+        if (name === "el folre") drawPinyaBloc(x, y, pinyaF * 0.52, "folreBloc");
+        else if (name === "les manilles") drawPinyaBloc(x, y, pinyaF * 0.52, "folreBloc");
+        else drawPinyaBloc(x, y, pinyaF, "pinyaBloc");
       } else {
         pinyaIllustrated(x, y, name === "el folre" ? pinyaR * 0.66 : name === "les manilles" ? pinyaR * 0.46 : pinyaR);
       }
@@ -1054,7 +1057,7 @@
     const cxFloor = (fi) => cxBase + ((fi < f0 && fOff[fi] !== undefined ? fOff[fi] : (state.baseOffsetX || 0)) - (state.baseOffsetX || 0));
     // enxaneta, acotxador AND dosos are kids → smaller
     const kidScale = (fi) => fi === F - 1 ? 0.72 : fi === F - 2 ? 0.74 : (!isPilar && fi === F - 3 && FLOORS[fi] >= 2 ? 0.8 : 1);
-    const yLift = (fi) => fi === F - 1 ? levelH * 0.14 : 0; // raise the enxaneta a bit (less hidden)
+    const yLift = (fi) => fi === F - 1 ? levelH * 0.03 : 0; // enxaneta sits just on the acotxador
 
     // --- the castell has fallen: castellers tumble onto the pinya ---
     if (state.phase === PHASE.FALL && state.debris) {
