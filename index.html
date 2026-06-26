@@ -1020,9 +1020,9 @@
     const nReinf = baseStack.length - 1;     // folre (+ manilles)
     // Reinforcement rings stack TOUCHING each other (block on block), and the
     // trunk starts on the reach of the highest ring. All in levelH units:
-    const folreLift = 0.18;   // folre nestled ON the pinya (touching, no gap)
-    const manillesGap = 0.95; // manilles nestled ON the folre (touching)
-    const trunkReach = 1.6;   // trunk starts on the reach of the highest ring
+    const folreLift = 0.08;   // folre sinks slightly INTO the pinya (overlap, no gap)
+    const manillesGap = 0.62; // manilles sinks slightly INTO the folre (overlap, no gap)
+    const trunkReach = 1.3;   // trunk overlaps the reach of the highest ring
     const plainTrunkLift = 1.0; // (no reinforcement) the segons rest ON the pinya
     const trunkLiftFrac = nReinf === 0 ? plainTrunkLift
       : folreLift + (nReinf - 1) * manillesGap + trunkReach;
