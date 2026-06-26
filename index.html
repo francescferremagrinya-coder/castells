@@ -276,7 +276,7 @@
   // Each pose PNG has its shirt/mocador in red; we recolour that red to the colla.
   const SPR = {
     imgs: {}, cache: {},
-    files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar", acot: "casteller_acotxador", enxw: "casteller_enxaneta", pinya: "casteller_pinya", pinyaD: "casteller_pinya_dreta", pinyaE: "casteller_pinya_esquerra", pinyaBloc: "pinya_bloc", folreBloc: "folre_bloc" },
+    files: { tronc: "casteller_tronc", esquena: "casteller_tronc_esquena", perfil: "casteller_perfil", pilar: "casteller_pilar", enx: "casteller_enxaneta_pilar", acot: "casteller_acotxador", enxw: "casteller_enxaneta", pinya: "casteller_pinya", pinyaD: "casteller_pinya_dreta", pinyaE: "casteller_pinya_esquerra", pinyaBloc: "pinya_bloc", folreBloc: "folre_bloc", manillesBloc: "manilles_bloc" },
     geo: {  // half-res sprites (downscaled for fast loading): coords are original/2
       tronc: { feetY: 676, cx: 256, anchor: 500 }, esquena: { feetY: 1140, cx: 427, anchor: 806 },
       perfil: { feetY: 1036, cx: 393, anchor: 639 }, pilar: { feetY: 726, cx: 257, anchor: 505 },
@@ -285,6 +285,7 @@
       pinya: { feetY: 596, headY: 61, cx: 210, anchor: 502 }, pinyaD: { feetY: 589, headY: 66, cx: 210, anchor: 507 }, pinyaE: { feetY: 589, headY: 60, cx: 211, anchor: 507 },
       pinyaBloc: { feetY: 1263, cx: 426, w: 793, legsY: 1130 },   // legsY: don't recolour below it (pants/feet)
       folreBloc: { feetY: 1263, cx: 470, w: 542, legsY: 900 },
+      manillesBloc: { feetY: 1263, cx: 491, w: 499, legsY: 1040 },
     },
   };
   function loadSprites() {
@@ -686,7 +687,10 @@
       }
     } else if (state.phase === PHASE.ALETA) {
       state.aletaT += dt;
-      if (state.aletaT > 1.3) { state.phase = PHASE.UP; }  // back to play: now tira avall per descarregar
+      // 5 de _: a single enxaneta fa l'aleta sobre una acotxadora, baixa al pis
+      // de les acotxadores, creua i puja a l'altra → l'aleta dura més estona.
+      const twoAcot = Math.max.apply(null, FLOORS) > 1 && FLOORS[F - 2] === 2;
+      if (state.aletaT > (twoAcot ? 3.0 : 1.3)) { state.phase = PHASE.UP; }  // back to play: now tira avall per descarregar
     }
     updateUI();
   }
@@ -1013,26 +1017,60 @@
     // manilles = pis 3: each reinforcement ring stands a FULL floor on the one
     // below (no overlap), and the trunk starts on top of the highest one.
     const baseStack = state.baseStack || [{ name: "la pinya", x: cxBase }];
-    const nReinf = baseStack.length - 1;     // folre + manilles
-    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + nReinf * 1.75 + 1.9));
-    const folreLift = levelH * 0.18;   // folre TOUCHES the pinya (nestled, no gap)
-    const trunkLift = levelH * 1.0;    // the segons rest ON the pinya (not buried)
-    const reinfStep = levelH * 1.75;   // (bigger) folre reaches up to the trunk (no gap)
-    // y of base layer i (0 = pinya on the ground, then a reinforcement ring per step)
-    const baseLayerY = (i) => groundY - (i === 0 ? 0 : folreLift + (i - 1) * reinfStep);
-    baseY = (nReinf > 0 ? groundY - folreLift - nReinf * reinfStep : groundY - trunkLift) + levelH * 0.06;
+    const nReinf = baseStack.length - 1;     // folre (+ manilles)
+    // Reinforcement rings stack TOUCHING each other (block on block), and the
+    // trunk starts on the reach of the highest ring. All in levelH units:
+    const folreLift = 0.18;   // folre nestled ON the pinya (touching, no gap)
+    const manillesGap = 0.95; // manilles nestled ON the folre (touching)
+    const trunkReach = 1.6;   // trunk starts on the reach of the highest ring
+    const plainTrunkLift = 1.0; // (no reinforcement) the segons rest ON the pinya
+    const trunkLiftFrac = nReinf === 0 ? plainTrunkLift
+      : folreLift + (nReinf - 1) * manillesGap + trunkReach;
+    levelH = Math.min(66, (groundY - H * 0.05) / (totalCum + trunkLiftFrac + 0.9));
+    // y of base layer i (0 = pinya on the ground, folre then manilles on top)
+    const baseLayerY = (i) => groundY - levelH * (i === 0 ? 0 : i === 1 ? folreLift : folreLift + manillesGap);
+    baseY = groundY - levelH * trunkLiftFrac + levelH * 0.06;
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
     // pinya (full) on the ground, folre/manilles smaller blocks stacked on top.
     const pinyaF = 0.82 + maxW * 0.06;   // wider pinya for wider castells (so the segons rest on it)
     const drawBaseLayer = (name, x, y) => {
-      const isFolre = name === "el folre" || name === "les manilles";
-      if (isFolre && sprite("folreBloc")) drawPinyaBloc(x, y, pinyaF * 0.62, "folreBloc");
-      else if (!isFolre && sprite("pinyaBloc")) drawPinyaBloc(x, y, pinyaF, "pinyaBloc");
-      else pinyaIllustrated(x, y, name === "el folre" ? pinyaR * 0.66 : name === "les manilles" ? pinyaR * 0.46 : pinyaR);
+      if (name === "les manilles") {
+        if (sprite("manillesBloc")) drawPinyaBloc(x, y, pinyaF * 0.6, "manillesBloc");
+        else pinyaIllustrated(x, y, pinyaR * 0.46);
+      } else if (name === "el folre") {
+        if (sprite("folreBloc")) drawPinyaBloc(x, y, pinyaF * 0.62, "folreBloc");
+        else pinyaIllustrated(x, y, pinyaR * 0.66);
+      } else {
+        if (sprite("pinyaBloc")) drawPinyaBloc(x, y, pinyaF, "pinyaBloc");
+        else pinyaIllustrated(x, y, pinyaR);
+      }
     };
     const spriteOn = !!(sprite("tronc") || sprite("pilar"));   // illustrated art available?
     const colSpacing = levelH * (spriteOn ? 0.66 : 0.74);
     const reachU = colSpacing * 0.92 / levelH;
+    // 5 de _: there are TWO acotxadores and ONE enxaneta. She fa l'aleta over one,
+    // then drops to the acotxadores' floor, crosses and climbs onto the other.
+    // enxDX/enxDY shift the (single) enxaneta off the centre during that journey.
+    const twoAcot = !isPilar && FLOORS[F - 2] === 2;
+    let enxDX = 0, enxDY = 0;
+    if (twoAcot) {
+      const side = 0.34 * colSpacing;                     // acotxadora half-separation
+      const drop = levelH * floorMul(F - 2, false);       // one floor down (onto the acotxadores)
+      if (state.phase === PHASE.ALETA) {
+        const t = state.aletaT;
+        if (t < 1.0) { enxDX = -side; }                   // aleta on the left acotxadora
+        else if (t < 2.0) {                               // cross to the right one
+          const u = t - 1.0;
+          enxDX = -side + 2 * side * u;
+          enxDY = Math.sin(u * Math.PI) * drop;           // dip down to their floor, then back up
+        } else { enxDX = side; }                          // aleta on the right acotxadora
+      } else if (state.phase === PHASE.UP && state.placed >= F) {
+        enxDX = side;                                      // settled on the right, awaiting "avall"
+      } else if (state.climbing && state.placed === F - 1) {
+        enxDX = state.goingUp ? -side : side * (1 - state.climbProg); // climbs onto / leaves the right
+      }
+    }
+    const enxOff = (fi) => (twoAcot && fi === F - 1) ? { dx: enxDX, dy: enxDY } : { dx: 0, dy: 0 };
     // Draw an illustrated pose (recoloured) anchored at the feet; returns false if missing.
     const drawPose = (name, x, y, rot, mirror, kid) => {
       const cv = sprite(name), g = SPR.geo[name]; if (!cv || !g) return false;
@@ -1084,9 +1122,10 @@
       const spread = !isPilar && !isEnx && !isAcot;    // trunk & dosos grip sideways
       const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac);
       const lay = layout(w).slice().sort((a,b)=>(a.back===b.back)?0:(a.back?-1:1)); // back first
+      const eo = enxOff(fi);
       for (const c of lay) {
         const sc = (c.back ? 0.92 : 1) * kid;
-        const x = cxFloor(fi) + xoff + c.dx * colSpacing, y = yc + c.dy * levelH;
+        const x = cxFloor(fi) + xoff + c.dx * colSpacing + eo.dx, y = yc + c.dy * levelH + eo.dy;
         if (part === 1 && !climbing) state.pos.push({ x: x, y: y, rot: rot, idx: fi, isTop: isEnx, sc: sc, back: c.back, helmet: isEnx || isAcot });
         ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
         drawCasteller(0, 0, fi, isEnx, isEnx && !climbing, 1, climbing, part, { back: c.back, crouch: isAcot && !isPilar, legsApart: isEnx && !isPilar, helmet: isEnx || isAcot, spread: spread, reach: reachU });
@@ -1100,8 +1139,9 @@
       const w = FLOORS[fi], isEnx = fi === F - 1, isAcot = fi === F - 2;
       const frac = fi / denom, xoff = bendX(frac), rot = bendA(frac), kid = kidScale(fi);
       const lay = layout(w).slice().sort((a, b) => (a.back === b.back) ? 0 : (a.back ? -1 : 1));
+      const eo = enxOff(fi);
       for (const c of lay) {
-        const x = cxFloor(fi) + xoff + c.dx * colSpacing, y = yc + c.dy * levelH - yLift(fi);
+        const x = cxFloor(fi) + xoff + c.dx * colSpacing + eo.dx, y = yc + c.dy * levelH - yLift(fi) + eo.dy;
         const pose = poseFor(fi, c);
         const drawn = pose && drawPose(pose.name, x, y, rot, pose.mirror, kid);
         const sc = (c.back ? 0.92 : 1) * kid;
