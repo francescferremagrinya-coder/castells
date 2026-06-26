@@ -1033,13 +1033,14 @@
     const pinyaR = Math.min(W * 0.46, 120 + maxW * 48);
     // pinya (full) on the ground, folre/manilles smaller blocks stacked on top.
     const pinyaF = 0.82 + maxW * 0.06;   // wider pinya for wider castells (so the segons rest on it)
+    const reinfDX = levelH * 0.1;   // folre+manilles nudged right to centre on the trunk
     const drawBaseLayer = (name, x, y) => {
       if (name === "les manilles") {
-        if (sprite("manillesBloc")) drawPinyaBloc(x, y, pinyaF * 0.6, "manillesBloc");
-        else pinyaIllustrated(x, y, pinyaR * 0.46);
+        if (sprite("manillesBloc")) drawPinyaBloc(x + reinfDX, y, pinyaF * 0.6, "manillesBloc");
+        else pinyaIllustrated(x + reinfDX, y, pinyaR * 0.46);
       } else if (name === "el folre") {
-        if (sprite("folreBloc")) drawPinyaBloc(x, y, pinyaF * 0.62, "folreBloc");
-        else pinyaIllustrated(x, y, pinyaR * 0.66);
+        if (sprite("folreBloc")) drawPinyaBloc(x + reinfDX, y, pinyaF * 0.62, "folreBloc");
+        else pinyaIllustrated(x + reinfDX, y, pinyaR * 0.66);
       } else {
         if (sprite("pinyaBloc")) drawPinyaBloc(x, y, pinyaF, "pinyaBloc");
         else pinyaIllustrated(x, y, pinyaR);
