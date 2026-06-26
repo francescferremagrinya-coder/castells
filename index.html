@@ -73,6 +73,19 @@
   .principis { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #6b7a84; font-weight: 700; margin: 10px 0 24px; }
   .home-btns { display: flex; flex-direction: column; gap: 12px; width: min(82%,300px); margin-bottom: 16px; }
   .home-btns .btn, .home-btns .btn-ghost { width: 100%; }
+  /* How-to-play card (home): a phone tilting to keep the castell balanced */
+  .howto { width: min(86%,320px); background: rgba(16,14,24,.66); border: 1px solid rgba(255,255,255,.2); border-radius: 16px; padding: 12px 14px 13px; margin-bottom: 18px; display: flex; flex-direction: column; align-items: center; }
+  .howto-svg { width: 152px; height: auto; display: block; }
+  .howto-cap { color: #fff; font-size: 13px; font-weight: 700; text-align: center; line-height: 1.45; text-shadow: 0 1px 4px rgba(0,0,0,.7); margin-top: 6px; }
+  .ht-phone { transform-box: fill-box; transform-origin: 50% 92%; animation: htRock 2.8s ease-in-out infinite; }
+  .ht-tower { transform-box: fill-box; transform-origin: 50% 100%; animation: htSway 2.8s ease-in-out infinite; }
+  .ht-arrowL { animation: htArrowL 2.8s ease-in-out infinite; }
+  .ht-arrowR { animation: htArrowR 2.8s ease-in-out infinite; }
+  @keyframes htRock { 0%,100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg); } }
+  @keyframes htSway { 0%,100% { transform: rotate(5deg); } 50% { transform: rotate(-5deg); } }
+  @keyframes htArrowL { 0%,100% { opacity: 1; } 45%,55% { opacity: .2; } }
+  @keyframes htArrowR { 0%,15% { opacity: .2; } 50% { opacity: 1; } 85%,100% { opacity: .2; } }
+  @media (prefers-reduced-motion: reduce) { .ht-phone,.ht-tower,.ht-arrowL,.ht-arrowR { animation: none; } }
   .btn-ghost.small { font-size: 13px; padding: 8px 18px; }
   .pv-canvas { width: 130px; height: 228px; margin-bottom: 14px; }
   .gamma-h { width: min(90%,360px); margin: 14px auto 2px; text-align: left; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #2c3942; }
@@ -173,6 +186,28 @@
     <circle cx="30" cy="22" r="10" fill="#e9c19a" stroke="#1b2730" stroke-width="1.6"/>
   </svg>
   <div class="principis">Valor · Força · Equilibri · Seny</div>
+  <div class="howto" id="howto">
+    <svg viewBox="0 0 140 100" class="howto-svg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <!-- tilt arrows: glow on the side the phone leans toward -->
+      <g class="ht-arrowL" fill="#ffd24a"><path d="M22 50 l12 -9 v5 h9 v8 h-9 v5 z"/></g>
+      <g class="ht-arrowR" fill="#ffd24a"><path d="M118 50 l-12 -9 v5 h-9 v8 h9 v5 z"/></g>
+      <!-- phone + hands rock together; the castell inside sways to stay upright -->
+      <g class="ht-phone">
+        <rect x="50" y="16" width="40" height="68" rx="9" fill="#1c2a33" stroke="#0c1318" stroke-width="2"/>
+        <rect x="54" y="22" width="32" height="52" rx="4" fill="#bfe0ef"/>
+        <g class="ht-tower">
+          <rect x="62" y="58" width="16" height="9" rx="2" fill="#e23b2e"/>
+          <rect x="64" y="50" width="12" height="9" rx="2" fill="#e23b2e"/>
+          <rect x="66" y="42" width="8" height="9" rx="2" fill="#e23b2e"/>
+          <circle cx="70" cy="38" r="3.2" fill="#e9c19a" stroke="#0c1318" stroke-width="1"/>
+        </g>
+        <rect x="64" y="78" width="12" height="2.6" rx="1.3" fill="#41525d"/>
+        <rect x="40" y="68" width="15" height="20" rx="7" fill="#e9c19a" stroke="#0c1318" stroke-width="1.5"/>
+        <rect x="85" y="68" width="15" height="20" rx="7" fill="#e9c19a" stroke="#0c1318" stroke-width="1.5"/>
+      </g>
+    </svg>
+    <div class="howto-cap">Inclina el mòbil cap als costats per mantenir l'equilibri del castell</div>
+  </div>
   <div class="home-btns">
     <button class="btn" id="assaigBtn">Assaig</button>
     <button class="btn" id="actuacioBtn">Actuació</button>
@@ -1022,7 +1057,9 @@
     // trunk starts on the reach of the highest ring. All in levelH units:
     const folreLift = 0.08;   // folre sinks slightly INTO the pinya (overlap, no gap)
     const manillesGap = 0.62; // manilles sinks slightly INTO the folre (overlap, no gap)
-    const trunkReach = 1.3;   // trunk overlaps the reach of the highest ring
+    // trunk rests on the highest ring's reach; over the (shorter) manilles it
+    // needs more reach so the quarts sit ON the manilles instead of sinking in.
+    const trunkReach = nReinf >= 2 ? 1.9 : 1.3;
     const plainTrunkLift = 1.0; // (no reinforcement) the segons rest ON the pinya
     const trunkLiftFrac = nReinf === 0 ? plainTrunkLift
       : folreLift + (nReinf - 1) * manillesGap + trunkReach;
